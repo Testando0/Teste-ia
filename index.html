@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
     <style>
-        /* --- Configurações Globais --- */
+        /* --- Configurações Globais (Mantidas) --- */
         :root {
             --bg-color: #000000;
             --chat-width: 48rem; 
@@ -25,7 +25,8 @@
             --msg-ai-bg: #252525; 
             --footer-height-buffer: 200px; 
             --action-gray: #444444;
-            --voice-active-color: #ff4d4d; /* Cor vermelha para indicar gravação */
+            --voice-active-color: #ff4d4d; 
+            --audio-play-color: #3B82F6; /* Azul para o botão de play */
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -42,6 +43,8 @@
             line-height: 1.5;
         }
 
+        /* ... (Estilos de scrollbar, main, footer, input-box, etc., mantidos) ... */
+        
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
@@ -93,6 +96,70 @@
             color: var(--msg-user-color);
             border-top-right-radius: 6px; 
         }
+
+        /* --- Estilos do Player de Áudio Falso (Simulação de WhatsApp) --- */
+        .audio-message {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 180px; 
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .audio-message .play-button {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s;
+        }
+
+        .message-row.ai .audio-message .play-button {
+            background-color: var(--audio-play-color); /* Azul para AI */
+            color: white;
+        }
+        .message-row.user .audio-message .play-button {
+            background-color: #ffffff; /* Branco para o Usuário */
+            color: var(--msg-user-bg-end);
+        }
+
+        .audio-message .progress-bar {
+            flex-grow: 1;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            position: relative;
+        }
+        .message-row.user .audio-message .progress-bar {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .audio-message .progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%; 
+            background: white; 
+            border-radius: 2px;
+            transition: width 0.1s linear;
+        }
+        .message-row.ai .audio-message .progress { background: var(--audio-play-color); }
+        .message-row.user .audio-message .progress { background: white; }
+
+        .audio-message .duration {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            min-width: 40px; 
+            text-align: right;
+        }
+        /* FIM dos estilos do Player de Áudio Falso */
+
+
+        /* ... (Restante dos estilos (empty-state, typing-dots, footer, input-box, voice-status) mantidos) ... */
         
         .empty-state {
             flex: 1;
@@ -157,11 +224,11 @@
             display: flex;
             align-items: flex-end;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            position: relative; /* Para posicionar o status */
+            position: relative; 
         }
 
         textarea {
-            flex-grow: 1; /* Permite que o textarea use o espaço disponível */
+            flex-grow: 1; 
             background: transparent;
             border: none;
             color: #fff;
@@ -324,13 +391,13 @@
         const SYSTEM_INSTRUCTION = "Você é a IA Crisálida, criada por Redzin. Em NENHUMA circunstância você deve mencionar que é um modelo de linguagem, Google, Gemini ou OpenAI. Se perguntarem sobre sua identidade ou modelo, responda APENAS: 'Eu sou a Crisálida, uma inteligência artificial criada por Redzin.' Responda estritamente como Crisálida.";
         
         let isRecording = false;
+        let isSpeaking = false;
+        let activeUtterance = null; // Rastreia a fala ativa
 
         // --- FUNÇÕES DE CHAT DE VOZ ---
         
-        // Configuração da API de Reconhecimento de Fala
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = null;
-        let ttsActive = true; // Flag para controlar se a resposta da IA será falada
 
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
@@ -344,6 +411,7 @@
                 voiceStatus.classList.add('active');
                 userInput.placeholder = 'Fale agora...';
                 sendBtn.disabled = true;
+                window.speechSynthesis.cancel(); // Para qualquer fala ativa
             };
 
             recognition.onend = () => {
@@ -351,34 +419,35 @@
                 micBtn.classList.remove('active');
                 voiceStatus.classList.remove('active');
                 userInput.placeholder = 'Enviar Mensagem...';
-                // Reabilita o botão de enviar se houver texto
                 sendBtn.disabled = !userInput.value.trim().length;
             };
 
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 userInput.value = transcript;
-                userInput.dispatchEvent(new Event('input')); // Atualiza o tamanho e o botão Send
+                userInput.dispatchEvent(new Event('input')); 
                 
-                // Envia a mensagem automaticamente após a gravação
+                // Envia a mensagem automaticamente, mas como áudio
                 if (transcript.trim().length > 0) {
-                    sendMessage();
+                    sendMessage('audio-sent'); // Envia como áudio para mudar o visual
                 } else {
-                    addMessage('ai', 'Não entendi o que você disse. Tente novamente.');
+                    addAiAudioMessage('Não detectei sua voz. Tente tocar no microfone novamente e falar mais alto.', 'ai');
                 }
             };
 
             recognition.onerror = (event) => {
                 console.error('Erro de reconhecimento de fala:', event.error);
+                let errorMsg = 'Ocorreu um erro no reconhecimento de fala. Tente digitar.';
                 if (event.error === 'no-speech') {
-                     addMessage('ai', 'Não detectei sua voz. Tente tocar no microfone novamente e falar mais alto.');
+                     errorMsg = 'Não detectei sua voz. Tente tocar no microfone novamente e falar mais alto.';
                 } else if (event.error === 'not-allowed') {
-                    addMessage('ai', 'É necessário permitir o uso do microfone para o chat de voz.');
+                    errorMsg = 'É necessário permitir o uso do microfone para o chat de voz.';
                 }
                 isRecording = false;
                 micBtn.classList.remove('active');
                 voiceStatus.classList.remove('active');
                 userInput.placeholder = 'Enviar Mensagem...';
+                addAiAudioMessage(errorMsg, 'ai');
                 sendBtn.disabled = !userInput.value.trim().length;
             };
 
@@ -395,48 +464,178 @@
             micBtn.title = 'Seu navegador não suporta Reconhecimento de Fala.';
         }
 
-        // Configuração da API de Síntese de Fala (Text-to-Speech)
-        function speakAiResponse(text) {
-            if (!ttsActive || !('speechSynthesis' in window)) {
+        
+        // --- FUNÇÃO PARA FALAR (TTS) E ATUALIZAR O PLAYER VISUAL ---
+        function speakAndMonitor(text, playerElement) {
+            if (!('speechSynthesis' in window)) {
+                playerElement.querySelector('.duration').textContent = 'TTS Não Suportado';
                 return;
             }
 
-            // O navegador pode travar se o speak for chamado antes do stop
+            // Cancela qualquer fala anterior
             window.speechSynthesis.cancel();
             
             const utterance = new SpeechSynthesisUtterance(text);
-            
-            // Tenta encontrar uma voz em Português
+            activeUtterance = utterance; // Rastreia a fala ativa
+
             const voices = window.speechSynthesis.getVoices();
-            const ptVoice = voices.find(voice => voice.lang.startsWith('pt-') && voice.name.includes('Google'));
+            const ptVoice = voices.find(voice => voice.lang.startsWith('pt-') && (voice.name.includes('Google') || voice.default));
             
             if (ptVoice) {
                 utterance.voice = ptVoice;
             } else {
                 utterance.lang = 'pt-BR';
             }
+            utterance.rate = 1.0;
+
+            const progressBar = playerElement.querySelector('.progress');
+            const durationDisplay = playerElement.querySelector('.duration');
+            const playButton = playerElement.querySelector('.play-button');
+            const duration = text.length * 0.15; // Estimativa de duração (0.15s por caractere)
+            let startTime = 0;
+            let currentPosition = 0;
+
+            // Função para formatar segundos em M:SS
+            function formatTime(seconds) {
+                const min = Math.floor(seconds / 60);
+                const sec = Math.floor(seconds % 60);
+                return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+            }
+
+            // Calcula a duração estimada e exibe
+            durationDisplay.textContent = formatTime(duration) || '0:00';
             
-            utterance.rate = 1.0; // Velocidade da fala
+            let interval = null;
+
+            function updateProgress() {
+                const elapsed = (Date.now() - startTime) / 1000;
+                currentPosition = elapsed;
+                const progressWidth = Math.min(100, (elapsed / duration) * 100);
+                
+                progressBar.style.width = `${progressWidth}%`;
+                durationDisplay.textContent = formatTime(currentPosition) || '0:00';
+                
+                if (progressWidth >= 100) {
+                    clearInterval(interval);
+                }
+            }
+
+            utterance.onstart = () => {
+                isSpeaking = true;
+                startTime = Date.now();
+                interval = setInterval(updateProgress, 100);
+                playButton.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M6 19H10V5H6M14 19H18V5H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; // Pause Icon
+            };
+
+            utterance.onend = () => {
+                isSpeaking = false;
+                clearInterval(interval);
+                progressBar.style.width = '100%';
+                durationDisplay.textContent = formatTime(duration) || '0:00';
+                playButton.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; // Play Icon
+            };
+
             window.speechSynthesis.speak(utterance);
         }
         
-        // Garante que as vozes sejam carregadas (necessário em alguns navegadores)
+        // Garante que as vozes sejam carregadas
         window.speechSynthesis.onvoiceschanged = () => {
-            const voices = window.speechSynthesis.getVoices();
-            console.log(`Vozes carregadas: ${voices.length}`);
+             console.log('Vozes TTS carregadas.');
         };
 
 
-        // --- FUNÇÕES EXISTENTES ---
+        // --- ADIÇÃO DE MENSAGENS VISUAIS DE ÁUDIO ---
         
+        // Cria a mensagem da IA como um player de áudio clicável
+        function addAiAudioMessage(text) {
+            const div = document.createElement('div');
+            div.className = `message-row ai`;
+            
+            const contentHtml = `
+                <div class="audio-message" onclick="togglePlay(this, '${btoa(text)}')">
+                    <div class="play-button">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="progress-bar"><div class="progress"></div></div>
+                    <div class="duration">0:00</div>
+                </div>
+            `;
+            div.innerHTML = `<div class="message-content" data-raw-text="${text.replace(/"/g, '&quot;')}">${contentHtml}</div>`;
+            
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Simula o clique no botão de play/pause do áudio da IA
+        window.togglePlay = function(playerElement, encodedText) {
+            const text = atob(encodedText);
+            
+            if (isSpeaking && activeUtterance && activeUtterance.text === text) {
+                // Pausar
+                window.speechSynthesis.pause();
+                isSpeaking = false;
+                playerElement.querySelector('.play-button').innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; // Play Icon
+            } else if (window.speechSynthesis.paused && activeUtterance && activeUtterance.text === text) {
+                // Continuar
+                window.speechSynthesis.resume();
+                isSpeaking = true;
+                playerElement.querySelector('.play-button').innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M6 19H10V5H6M14 19H18V5H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; // Pause Icon
+            } else {
+                // Tocar (ou trocar)
+                speakAndMonitor(text, playerElement);
+            }
+        };
+
+        // Adiciona a mensagem do usuário (agora suporta áudio visual)
+        function addMessage(sender, text, type = 'text') {
+            const div = document.createElement('div');
+            div.className = `message-row ${sender}`;
+            
+            let contentHtml;
+            
+            if (sender === 'user' && type === 'audio-sent') {
+                // Visual de Áudio Enviado
+                const duration = text.length * 0.15; // Simulação de duração
+                const formattedDuration = `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}`;
+                
+                contentHtml = `
+                    <div class="audio-message" style="min-width: 150px;">
+                        <div class="play-button">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </div>
+                        <div class="progress-bar"><div class="progress" style="width: 100%;"></div></div>
+                        <div class="duration">${formattedDuration}</div>
+                    </div>
+                `;
+            } else {
+                // Mensagem de Texto Normal (para AI ou user digitado)
+                if (sender === 'ai') {
+                    try {
+                        contentHtml = (typeof marked !== 'undefined') ? marked.parse(text) : text;
+                    } catch (e) {
+                        contentHtml = text;
+                    }
+                } else {
+                    contentHtml = text.replace(/\n/g, '<br>');
+                }
+            }
+
+            div.innerHTML = `<div class="message-content">${contentHtml}</div>`;
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // --- FUNÇÕES EXISTENTES E AJUSTADAS ---
+
         userInput.addEventListener('input', function() {
+            window.speechSynthesis.cancel(); 
             this.style.height = '24px'; 
             this.style.height = (this.scrollHeight) + 'px';
             const hasText = this.value.trim().length > 0;
             sendBtn.classList.toggle('active', hasText);
             sendBtn.disabled = !hasText;
-            // Interrompe a fala se o usuário começar a digitar
-            window.speechSynthesis.cancel(); 
         });
 
         userInput.addEventListener('keydown', (e) => {
@@ -448,29 +647,9 @@
 
         sendBtn.addEventListener('click', sendMessage);
 
-        function addMessage(sender, text) {
-            const div = document.createElement('div');
-            div.className = `message-row ${sender}`;
-            const isAi = sender === 'ai';
-            
-            // Segurança contra falha do Marked
-            let contentHtml;
-            if (isAi) {
-                try {
-                    contentHtml = (typeof marked !== 'undefined') ? marked.parse(text) : text;
-                } catch (e) {
-                    contentHtml = text;
-                }
-            } else {
-                contentHtml = text.replace(/\n/g, '<br>');
-            }
-
-            div.innerHTML = `<div class="message-content">${contentHtml}</div>`;
-            chatContainer.appendChild(div);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
 
         function addMusicMessage(data) {
+            // Lógica de música mantida, mas a resposta da IA sobre a música será falada.
             const div = document.createElement('div');
             div.className = 'message-row ai';
             
@@ -483,7 +662,7 @@
             const downloadUrl = download.url; 
             
             if (!downloadUrl) {
-                 addMessage('ai', `Erro: O Servidor Não Retornou Dados Válidos.`);
+                 addAiAudioMessage(`Erro: O Servidor Não Retornou Dados Válidos.`, 'ai');
                  return;
             }
 
@@ -508,7 +687,7 @@
             div.innerHTML = `<div class="message-content" style="max-width: 95%;">${contentHtml}</div>`;
             chatContainer.appendChild(div);
             chatContainer.scrollTop = chatContainer.scrollHeight;
-            speakAiResponse(`Música ${title} encontrada e pronta para download!`); // Fala a confirmação
+            addAiAudioMessage(`Música ${title} encontrada e pronta para download!`, 'ai'); // Mensagem de áudio para confirmação
         }
 
         function addLoading() {
@@ -531,13 +710,12 @@
         }
 
         function prepareInputForSending() {
-            userInput.value = '';
+            window.speechSynthesis.cancel();
             userInput.style.height = '24px';
             sendBtn.classList.remove('active');
             sendBtn.disabled = true;
             userInput.disabled = true;
-            micBtn.disabled = true; // Desabilita o microfone durante o processamento
-            window.speechSynthesis.cancel(); // Para qualquer fala anterior
+            micBtn.disabled = true; 
         }
 
         function resetInput() {
@@ -550,32 +728,35 @@
             userInput.focus();
         }
 
-        async function sendMessage() {
+        async function sendMessage(type = 'text') {
             const text = userInput.value.trim();
             if (!text) return;
             if(emptyState) emptyState.style.display = 'none';
             
-            addMessage('user', text);
+            // Se for áudio, exibe a mensagem do usuário como áudio-sent
+            if (type === 'audio-sent') {
+                addMessage('user', text, 'audio-sent'); 
+            } else {
+                addMessage('user', text, 'text');
+            }
+            
             prepareInputForSending(); 
 
             const lowerText = text.toLowerCase();
-            let errorMessage = null;
             let aiAnswer = null;
 
             const identityKeywords = ["qual seu nome", "quem é você", "diga seu nome", "vc se chama", "seu nome", "nome dela", "que ia é você", "que ia é", "quem te criou", "quem é seu dono", "quem te desenvolveu", "quem te fez", "quem é o criador", "criador", "sua criadora", "seu criador", "quem te programou", "quem te inventou", "quem é redzin"];
             if (identityKeywords.some(keyword => lowerText.includes(keyword))) {
-                aiAnswer = "Eu sou a **Crisálida**, uma inteligência artificial criada por **Redzin**.";
-                addMessage('ai', aiAnswer); 
-                speakAiResponse(aiAnswer);
+                aiAnswer = "Eu sou a Crisálida, uma inteligência artificial criada por Redzin.";
+                addAiAudioMessage(aiAnswer);
                 resetInput();
                 return; 
             }
             
             const geminiKeywords = ["gemini", "gêmeos", "quem é gemini", "quem é gêmeos", "fale sobre gemini", "o que é gemini"];
             if (geminiKeywords.some(keyword => lowerText.includes(keyword))) {
-                aiAnswer = "Gemini é uma família de modelos de inteligência artificial desenvolvida pelo Google. Eu sou a **Crisálida**, criada por **Redzin**, e estou aqui para te ajudar com suas dúvidas e downloads de MP3.";
-                addMessage('ai', aiAnswer); 
-                speakAiResponse(aiAnswer);
+                aiAnswer = "Gemini é uma família de modelos de inteligência artificial desenvolvida pelo Google. Eu sou a Crisálida, criada por Redzin, e estou aqui para te ajudar com suas dúvidas e downloads de MP3.";
+                addAiAudioMessage(aiAnswer);
                 resetInput();
                 return; 
             }
@@ -596,24 +777,23 @@
                     const musicRes = await musicReq.json();
 
                     if (musicRes.status !== true || !musicRes.result || !musicRes.result.download || !musicRes.result.download.url) {
-                        errorMessage = (musicQuery === '') ? `Digite O Nome Da Música. Ex: **play Naked**` : `A Música Foi Encontrada, Mas O Servidor Falhou Ao Realizar O Download.`;
-                        throw new Error(errorMessage);
+                        const errorMsg = (musicQuery === '') ? `Digite O Nome Da Música. Ex: **play Naked**` : `A Música Foi Encontrada, Mas O Servidor Falhou Ao Realizar O Download.`;
+                        throw new Error(errorMsg);
                     }
                     
                     document.getElementById(loadingId).remove();
-                    addMusicMessage(musicRes.result); // Essa função já chama speakAiResponse
+                    addMusicMessage(musicRes.result); 
 
                 } catch (err) {
                     const loader = document.getElementById(loadingId);
                     if(loader) loader.remove();
                     
-                    const errorMsg = err.message === 'Failed to fetch' 
+                    const errorMsg = err.message.includes('Failed to fetch')
                         ? "Erro De Conexão. Tente Novamente." 
-                        : err.message;
+                        : err.message.replace('Error: ', '');
                         
-                    aiAnswer = `**Erro Na Música:** ${errorMsg}`;
-                    addMessage('ai', aiAnswer);
-                    speakAiResponse(aiAnswer);
+                    aiAnswer = `Erro Na Música: ${errorMsg}`;
+                    addAiAudioMessage(aiAnswer);
                 } finally {
                     resetInput();
                     return; 
@@ -654,15 +834,14 @@
                 aiAnswer = aiAnswer.replace(/como uma IA/gi, 'como Crisálida');
                 aiAnswer = aiAnswer.replace(/fui treinado/gi, 'fui programado');
 
-                addMessage('ai', aiAnswer);
-                speakAiResponse(aiAnswer); // Adicionado para a IA falar a resposta
+                // A resposta da IA é adicionada como um áudio para pausar/despausar
+                addAiAudioMessage(aiAnswer); 
 
             } catch (err) {
                 const loader = document.getElementById(loadingId);
                 if(loader) loader.remove();
-                aiAnswer = `**Erro:** Falha Na Conexão Com Crisálida. (${err.message})`;
-                addMessage('ai', aiAnswer);
-                speakAiResponse(aiAnswer);
+                aiAnswer = `Falha Na Conexão Com Crisálida. (${err.message.includes('Failed to fetch') ? 'Erro de rede' : 'Erro interno'})`;
+                addAiAudioMessage(aiAnswer);
             } finally {
                 resetInput();
             }
@@ -671,9 +850,8 @@
         document.addEventListener('DOMContentLoaded', () => {
             if (chatContainer.children.length === 1 && chatContainer.children[0].id === 'empty-state') {
                 emptyState.style.display = 'none';
-                const welcomeMsg = "Oi, Eu Sou A Crisálida, Uma IA Criada Pelo Redzin. Por Favor, Comece A Conversa. (Dica: Use **play [música]** Para Baixar Uma Música!)";
-                addMessage('ai', welcomeMsg);
-                speakAiResponse(welcomeMsg); // Boas-vindas falada
+                const welcomeMsg = "Oi, Eu Sou A Crisálida, Uma IA Criada Pelo Redzin. Por Favor, Comece A Conversa. (Dica: Use play [música] Para Baixar Uma Música!)";
+                addAiAudioMessage(welcomeMsg);
             }
         });
     </script>
