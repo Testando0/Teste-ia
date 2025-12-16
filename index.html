@@ -26,7 +26,8 @@
             --footer-height-buffer: 200px; 
             --action-gray: #444444;
             --voice-active-color: #ff4d4d; 
-            --audio-play-color: #3B82F6; 
+            /* ALTERAÇÃO 1: Cor do áudio da AI agora é cinza */
+            --audio-play-color: #444444; 
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -116,11 +117,11 @@
         }
 
         .message-row.ai .audio-message .play-button {
-            background-color: var(--audio-play-color); /* Azul para AI */
+            background-color: var(--audio-play-color); /* Agora é cinza */
             color: white;
         }
         .message-row.user .audio-message .play-button {
-            background-color: #ffffff; /* Branco para o Usuário */
+            background-color: #ffffff; 
             color: var(--msg-user-bg-end);
         }
 
@@ -388,13 +389,13 @@
         // Instrução de Sistema
         const SYSTEM_INSTRUCTION = "Você é a IA Crisálida, criada por Redzin. Em NENHUMA circunstância você deve mencionar que é um modelo de linguagem, Google, Gemini ou OpenAI. Se perguntarem sobre sua identidade ou modelo, responda APENAS: 'Eu sou a Crisálida, uma inteligência artificial criada por Redzin.' Responda estritamente como Crisálida.";
         
-        // NOVA LISTA DE PRIORIDADE: SEM VOZ DO GOOGLE, Otimizando para as alternativas mais comuns e jovens.
+        // LISTA DE PRIORIDADE: SEM VOZ DO GOOGLE
         const PREFERRED_VOICE_NAMES = [
             "Luciana", 
             "Vitoria", 
             "Microsoft Maria",
-            "female", // Tenta capturar qualquer voz feminina genérica
-            "Standard" // Tenta capturar a voz padrão do sistema
+            "female", 
+            "Standard" 
         ]; 
         
         let isRecording = false;
@@ -481,13 +482,17 @@
 
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
+                
+                // ALTERAÇÃO 2: Limpa o campo de texto imediatamente após a transcrição
                 userInput.value = transcript;
                 userInput.dispatchEvent(new Event('input')); 
                 
                 if (transcript.trim().length > 0) {
+                    userInput.value = transcript; // Define o valor para ser usado no sendMessage
                     sendMessage('audio-sent'); 
                 } else {
                     addMessage('ai', 'Não detectei sua voz. Tente tocar no microfone novamente e falar mais alto.', 'text');
+                    userInput.value = ""; // Limpa se não detectou
                 }
             };
 
@@ -539,14 +544,13 @@
 
             const voices = window.speechSynthesis.getVoices();
             
-            // LÓGICA DE SELEÇÃO DE VOZ: Exclui Google e prioriza Luciana/Vitoria.
             let selectedVoice = null;
             
-            // 1. Tenta encontrar as vozes preferidas (sem Google)
+            // 1. Tenta encontrar as vozes preferidas, EXCLUINDO o Google
             for (const name of PREFERRED_VOICE_NAMES) { 
                 selectedVoice = voices.find(
                     voice => voice.lang.startsWith('pt-') && 
-                             !voice.name.includes('Google') && // Garante exclusão do Google
+                             !voice.name.toLowerCase().includes('google') && // FILTRO INEGOCIÁVEL (Case Insensitive)
                              voice.name.includes(name)
                 );
                 if (selectedVoice) break;
@@ -557,33 +561,31 @@
             if (!selectedVoice) {
                 selectedVoice = voices.find(
                     voice => voice.lang.startsWith('pt-') && 
-                            !voice.name.includes('Google') && 
-                            (voice.name.includes('feminino') || voice.name.includes('female') || voice.default)
+                            !voice.name.toLowerCase().includes('google') && // FILTRO INEGOCIÁVEL (Case Insensitive)
+                            (voice.name.includes('feminino') || voice.name.includes('female'))
                 );
             }
             
-            // 3. Se tudo falhar, usa a primeira voz pt-BR disponível (com ou sem Google, pois não há alternativa)
-            if (!selectedVoice) {
-                selectedVoice = voices.find(voice => voice.lang.startsWith('pt-'));
-            }
-
+            // Se nenhuma voz não-Google for encontrada, usa a voz padrão sem especificar a voz, 
+            // confiando no filtro inegociável.
             
             if (selectedVoice) {
                 utterance.voice = selectedVoice;
                 console.log('Voz selecionada:', selectedVoice.name);
+                
+                // AJUSTE PARA VOZ MAIS JOVEM/ENÉRGICA
+                utterance.rate = 1.1; 
             } else {
-                utterance.lang = 'pt-BR';
-                console.log('Voz padrão pt-BR usada.');
+                utterance.lang = 'pt-BR'; 
+                utterance.rate = 1.0; 
+                console.warn('Nenhuma voz pt-BR não-Google encontrada. O sistema usará a voz padrão, o que pode resultar em silêncio ou uma voz genérica.');
             }
             
-            // AJUSTE PARA VOZ MAIS JOVEM/ENÉRGICA
-            utterance.rate = 1.1; 
-            // FIM DO AJUSTE
 
             const progressBar = playerElement.querySelector('.progress');
             const durationDisplay = playerElement.querySelector('.duration');
             const playButton = playerElement.querySelector('.play-button');
-            const duration = textForTts.length * 0.15 / utterance.rate; // Ajusta a duração pelo rate
+            const duration = textForTts.length * 0.15 / utterance.rate; 
             let startTime = 0;
             let currentPosition = 0;
             let interval = null;
@@ -813,7 +815,9 @@
         }
 
         function resetInput() {
-            userInput.value = '';
+            // Remove a linha que limpava o input de texto aqui.
+            // A limpeza para o áudio é feita em recognition.onresult.
+            // Para o texto digitado, a limpeza é feita antes (em sendMessage).
             userInput.style.height = '24px';
             sendBtn.classList.remove('active');
             sendBtn.disabled = false;
@@ -827,10 +831,14 @@
             if (!text) return;
             if(emptyState) emptyState.style.display = 'none';
             
+            // Se for áudio, o texto já foi capturado e o input será limpo 
+            // no final. Se for texto, limpamos o input aqui antes de enviar.
+            
             if (type === 'audio-sent') {
                 addMessage('user', text, 'audio-sent'); 
             } else {
                 addMessage('user', text, 'text');
+                userInput.value = ''; // Limpa o texto digitado antes de tudo
             }
             
             prepareInputForSending(); 
@@ -839,7 +847,7 @@
             let aiAnswer = null;
             let responseType = type; 
 
-            // --- Checagens de Identidade ---
+            // --- Checagens de Identidade e Bloqueio ---
             const identityKeywords = ["qual seu nome", "quem é você", "diga seu nome", "vc se chama", "seu nome", "nome dela", "que ia é você", "que ia é", "quem te criou", "quem é seu dono", "quem te desenvolveu", "quem te fez", "quem é o criador", "criador", "sua criadora", "seu criador", "quem te programou", "quem te inventou", "quem é redzin"];
             if (identityKeywords.some(keyword => lowerText.includes(keyword))) {
                 aiAnswer = "Eu sou a Crisálida, uma inteligência artificial criada por Redzin.";
@@ -896,7 +904,7 @@
                         : err.message.replace('Error: ', '');
                         
                     aiAnswer = `**Erro Na Música:** ${errorMsg}`;
-                    addMessage('ai', errorAnswer, 'text'); 
+                    addMessage('ai', aiAnswer, 'text'); 
                 } finally {
                     resetInput();
                     return; 
