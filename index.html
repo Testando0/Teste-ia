@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
     <style>
-        /* (Estilos CSS mantidos como no código anterior) */
+        /* (Estilos CSS mantidos) */
         :root {
             --bg-color: #000000;
             --chat-width: 48rem; 
@@ -26,7 +26,6 @@
             --footer-height-buffer: 200px; 
             --action-gray: #444444;
             --voice-active-color: #ff4d4d; 
-            /* ALTERAÇÃO 1: Cor do áudio da AI agora é cinza */
             --audio-play-color: #444444; 
         }
 
@@ -117,7 +116,7 @@
         }
 
         .message-row.ai .audio-message .play-button {
-            background-color: var(--audio-play-color); /* Agora é cinza */
+            background-color: var(--audio-play-color); 
             color: white;
         }
         .message-row.user .audio-message .play-button {
@@ -483,16 +482,15 @@
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 
-                // ALTERAÇÃO 2: Limpa o campo de texto imediatamente após a transcrição
-                userInput.value = transcript;
-                userInput.dispatchEvent(new Event('input')); 
+                // *** CORREÇÃO: Limpamos o input IMEDIATAMENTE antes de processar. ***
+                userInput.value = ""; 
+                userInput.dispatchEvent(new Event('input')); // Redefine a altura e estado dos botões
                 
                 if (transcript.trim().length > 0) {
-                    userInput.value = transcript; // Define o valor para ser usado no sendMessage
-                    sendMessage('audio-sent'); 
+                    // Passamos a transcrição diretamente para sendMessage, sem tocar no input.
+                    sendMessage('audio-sent', transcript); 
                 } else {
                     addMessage('ai', 'Não detectei sua voz. Tente tocar no microfone novamente e falar mais alto.', 'text');
-                    userInput.value = ""; // Limpa se não detectou
                 }
             };
 
@@ -508,8 +506,8 @@
                 micBtn.classList.remove('active');
                 voiceStatus.classList.remove('active');
                 userInput.placeholder = 'Enviar Mensagem...';
-                addMessage('ai', errorMsg, 'text'); 
                 sendBtn.disabled = !userInput.value.trim().length;
+                addMessage('ai', errorMsg, 'text'); 
             };
 
             micBtn.addEventListener('click', () => {
@@ -550,30 +548,25 @@
             for (const name of PREFERRED_VOICE_NAMES) { 
                 selectedVoice = voices.find(
                     voice => voice.lang.startsWith('pt-') && 
-                             !voice.name.toLowerCase().includes('google') && // FILTRO INEGOCIÁVEL (Case Insensitive)
+                             !voice.name.toLowerCase().includes('google') && 
                              voice.name.includes(name)
                 );
                 if (selectedVoice) break;
             }
 
             // 2. Fallback: Tenta encontrar qualquer outra voz feminina/jovem pt-BR,
-            // garantindo que NÃO seja a do Google.
             if (!selectedVoice) {
                 selectedVoice = voices.find(
                     voice => voice.lang.startsWith('pt-') && 
-                            !voice.name.toLowerCase().includes('google') && // FILTRO INEGOCIÁVEL (Case Insensitive)
+                            !voice.name.toLowerCase().includes('google') && 
                             (voice.name.includes('feminino') || voice.name.includes('female'))
                 );
             }
             
-            // Se nenhuma voz não-Google for encontrada, usa a voz padrão sem especificar a voz, 
-            // confiando no filtro inegociável.
             
             if (selectedVoice) {
                 utterance.voice = selectedVoice;
                 console.log('Voz selecionada:', selectedVoice.name);
-                
-                // AJUSTE PARA VOZ MAIS JOVEM/ENÉRGICA
                 utterance.rate = 1.1; 
             } else {
                 utterance.lang = 'pt-BR'; 
@@ -631,14 +624,11 @@
         
         window.speechSynthesis.onvoiceschanged = () => {
              console.log('Vozes TTS carregadas.');
-             // Dica de Debug: descomente a linha abaixo para ver quais vozes pt-BR estão disponíveis no seu navegador
-             // console.log(window.speechSynthesis.getVoices().filter(v => v.lang.startsWith('pt-')));
         };
 
 
         // --- ADIÇÃO DE MENSAGENS VISUAIS DE ÁUDIO E TEXTO ---
         
-        // Cria a mensagem da IA como um player de áudio clicável
         function addAiAudioMessage(text) {
             const div = document.createElement('div');
             div.className = `message-row ai`;
@@ -662,7 +652,6 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        // Simula o clique no botão de play/pause do áudio da IA
         window.togglePlay = function(playerElement, encodedText) {
             const text = base64ToUtf8(encodedText);
             
@@ -686,7 +675,6 @@
             }
         };
 
-        // Adiciona a mensagem do usuário (agora suporta áudio visual e texto)
         function addMessage(sender, text, type = 'text') {
             const div = document.createElement('div');
             div.className = `message-row ${sender}`;
@@ -815,9 +803,6 @@
         }
 
         function resetInput() {
-            // Remove a linha que limpava o input de texto aqui.
-            // A limpeza para o áudio é feita em recognition.onresult.
-            // Para o texto digitado, a limpeza é feita antes (em sendMessage).
             userInput.style.height = '24px';
             sendBtn.classList.remove('active');
             sendBtn.disabled = false;
@@ -826,20 +811,18 @@
             userInput.focus();
         }
 
-        async function sendMessage(type = 'text') {
-            const text = userInput.value.trim();
+        async function sendMessage(type = 'text', audioTranscript = null) {
+            const text = audioTranscript || userInput.value.trim();
             if (!text) return;
             if(emptyState) emptyState.style.display = 'none';
             
-            // Se for áudio, o texto já foi capturado e o input será limpo 
-            // no final. Se for texto, limpamos o input aqui antes de enviar.
-            
-            if (type === 'audio-sent') {
-                addMessage('user', text, 'audio-sent'); 
-            } else {
-                addMessage('user', text, 'text');
-                userInput.value = ''; // Limpa o texto digitado antes de tudo
+            // Para texto digitado: Limpa o input antes de tudo.
+            if (type === 'text') {
+                userInput.value = '';
             }
+            
+            // Adiciona a mensagem do usuário (seja ela transcrita ou digitada)
+            addMessage('user', text, type);
             
             prepareInputForSending(); 
 
