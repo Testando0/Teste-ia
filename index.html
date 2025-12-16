@@ -388,10 +388,8 @@
         // Instrução de Sistema
         const SYSTEM_INSTRUCTION = "Você é a IA Crisálida, criada por Redzin. Em NENHUMA circunstância você deve mencionar que é um modelo de linguagem, Google, Gemini ou OpenAI. Se perguntarem sobre sua identidade ou modelo, responda APENAS: 'Eu sou a Crisálida, uma inteligência artificial criada por Redzin.' Responda estritamente como Crisálida.";
         
-        // NOVIDADE: Nome da voz preferida
-        // Tente usar "Microsoft Maria", "Google português do Brasil feminino" ou "Luciana" 
-        // A disponibilidade depende do navegador e do sistema operacional do usuário.
-        const PREFERRED_VOICE_NAME = "Google português do Brasil feminino"; 
+        // NOVIDADE: Lista de nomes de vozes preferidas (mais robusta)
+        const PREFERRED_VOICE_NAMES = ["Microsoft Maria", "Google português do Brasil feminino", "Luciana", "Vitoria"]; 
         
         let isRecording = false;
         let isSpeaking = false;
@@ -537,18 +535,25 @@
 
             const voices = window.speechSynthesis.getVoices();
             
-            // LÓGICA DE SELEÇÃO DE VOZ APRIMORADA
-            let selectedVoice = voices.find(
-                voice => voice.lang.startsWith('pt-') && voice.name.includes(PREFERRED_VOICE_NAME)
-            );
-
-            if (!selectedVoice) {
-                // Tenta encontrar uma voz feminina comum (menos específica)
+            // LÓGICA DE SELEÇÃO DE VOZ APRIMORADA PARA VOZ FEMININA/JOVEM
+            let selectedVoice = null;
+            
+            // 1. Tenta encontrar a voz pelo nome preferido
+            for (const name of PREFERRED_VOICE_NAMES) {
                 selectedVoice = voices.find(
-                    voice => voice.lang.startsWith('pt-') && (voice.name.includes('Google') || voice.name.includes('Microsoft')) && (voice.name.includes('feminino') || voice.name.includes('female') || voice.name.includes('Maria') || voice.name.includes('Luciana'))
+                    voice => voice.lang.startsWith('pt-') && voice.name.includes(name)
                 );
+                if (selectedVoice) break;
             }
 
+            // 2. Fallback: Tenta encontrar qualquer voz feminina/jovem por palavras-chave
+            if (!selectedVoice) {
+                selectedVoice = voices.find(
+                    voice => voice.lang.startsWith('pt-') && 
+                            (voice.name.includes('feminino') || voice.name.includes('female') || voice.default)
+                );
+            }
+            
             if (selectedVoice) {
                 utterance.voice = selectedVoice;
                 console.log('Voz selecionada:', selectedVoice.name);
@@ -610,7 +615,7 @@
         
         window.speechSynthesis.onvoiceschanged = () => {
              console.log('Vozes TTS carregadas.');
-             // Você pode testar as vozes disponíveis aqui:
+             // Dica de Debug: descomente a linha abaixo para ver quais vozes pt-BR estão disponíveis no seu navegador
              // console.log(window.speechSynthesis.getVoices().filter(v => v.lang.startsWith('pt-')));
         };
 
