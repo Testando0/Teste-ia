@@ -392,28 +392,50 @@
         let isSpeaking = false;
         let activeUtterance = null; 
 
-        // --- FUNÇÕES DE CODIFICAÇÃO UTF-8 SEGURA (NOVIDADE) ---
+        // --- FUNÇÕES DE CODIFICAÇÃO UTF-8 SEGURA ---
+
         // Função para codificar texto UTF-8 (com acentos) para Base64 de forma segura
         function utf8ToBase64(str) {
-            // Encode the string in UTF-8
             const utf8Bytes = new TextEncoder().encode(str);
-            // Convert byte array to a string of binary data
             const binaryString = String.fromCharCode(...utf8Bytes);
-            // Base64 encode the binary string
             return btoa(binaryString);
         }
 
         // Função para decodificar Base64 para texto UTF-8 (com acentos) de forma segura
         function base64ToUtf8(str) {
-            // Base64 decode the string of binary data
             const binaryString = atob(str);
-            // Convert binary string to byte array
             const utf8Bytes = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
                 utf8Bytes[i] = binaryString.charCodeAt(i);
             }
-            // Decode the byte array to a UTF-8 string
             return new TextDecoder().decode(utf8Bytes);
+        }
+        
+        // --- NOVIDADE: FUNÇÃO PARA LIMPAR TEXTO PARA TTS ---
+        function cleanTextForTts(text) {
+            let cleaned = text;
+
+            // 1. Remover negrito/itálico Markdown (**) e (*)
+            cleaned = cleaned.replace(/\*\*/g, '');
+            cleaned = cleaned.replace(/\*/g, '');
+
+            // 2. Remover códigos e headers (`texto` e #)
+            cleaned = cleaned.replace(/`/g, '');
+            cleaned = cleaned.replace(/#/g, '');
+
+            // 3. Remover link formatting [texto](url) - Manter apenas o texto
+            cleaned = cleaned.replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
+
+            // 4. Substituir quebras de linha por um ponto para melhor fluxo de fala
+            cleaned = cleaned.replace(/[\n\r]+/g, '. '); 
+
+            // 5. Normalizar espaços múltiplos
+            cleaned = cleaned.replace(/\s{2,}/g, ' ');
+            
+            // 6. Remover pontuações que o TTS pode ler literalmente no final
+            cleaned = cleaned.replace(/\.$/, ''); // Remove ponto final se for o último caractere após a limpeza
+
+            return cleaned.trim();
         }
 
         
@@ -493,13 +515,17 @@
                 playerElement.querySelector('.duration').textContent = 'TTS Não Suportado';
                 return;
             }
+            
+            // *** APLICAÇÃO DA LIMPEZA DE TEXTO PARA TTS ***
+            const textForTts = cleanTextForTts(text);
 
-            if (activeUtterance && activeUtterance.text !== text) {
+            if (activeUtterance && activeUtterance.text !== textForTts) { 
                 window.speechSynthesis.cancel();
             }
             
-            const utterance = new SpeechSynthesisUtterance(text);
+            const utterance = new SpeechSynthesisUtterance(textForTts);
             activeUtterance = utterance;
+            // *** FIM DA APLICAÇÃO DA LIMPEZA ***
 
             const voices = window.speechSynthesis.getVoices();
             const ptVoice = voices.find(voice => voice.lang.startsWith('pt-') && (voice.name.includes('Google') || voice.default));
@@ -514,8 +540,7 @@
             const progressBar = playerElement.querySelector('.progress');
             const durationDisplay = playerElement.querySelector('.duration');
             const playButton = playerElement.querySelector('.play-button');
-            // Duração é calculada pelo tamanho da string (aproximadamente 0.15s por caractere)
-            const duration = text.length * 0.15; 
+            const duration = textForTts.length * 0.15; // Usar o texto limpo para uma duração mais precisa
             let startTime = 0;
             let currentPosition = 0;
             let interval = null;
@@ -571,7 +596,6 @@
             const div = document.createElement('div');
             div.className = `message-row ai`;
             
-            // *** CORREÇÃO AQUI: Usando a função utf8ToBase64 segura ***
             const encodedText = utf8ToBase64(text); 
             
             const contentHtml = `
@@ -593,14 +617,16 @@
 
         // Simula o clique no botão de play/pause do áudio da IA
         window.togglePlay = function(playerElement, encodedText) {
-            // *** CORREÇÃO AQUI: Usando a função base64ToUtf8 segura ***
             const text = base64ToUtf8(encodedText);
             
-            if (window.speechSynthesis.paused && activeUtterance && activeUtterance.text === text) {
+            // Usamos o texto limpo para comparação na memória do TTS
+            const textForTts = cleanTextForTts(text); 
+
+            if (window.speechSynthesis.paused && activeUtterance && activeUtterance.text === textForTts) {
                 window.speechSynthesis.resume();
                 isSpeaking = true;
                 playerElement.querySelector('.play-button').innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M6 19H10V5H6M14 19H18V5H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; 
-            } else if (isSpeaking && activeUtterance && activeUtterance.text === text && !window.speechSynthesis.paused) {
+            } else if (isSpeaking && activeUtterance && activeUtterance.text === textForTts && !window.speechSynthesis.paused) {
                 window.speechSynthesis.pause();
                 isSpeaking = false;
                 playerElement.querySelector('.play-button').innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; 
@@ -837,6 +863,7 @@
             const loadingId = addLoading();
 
             try {
+                // A instrução do sistema foi mantida para que a API retorne a resposta objetiva/limpa que o usuário deseja
                 const finalInstruction = `${SYSTEM_INSTRUCTION} Use formatação Markdown. Responda: ${text}`;
                 
                 const chatUrl = CHAT_API_URL + encodeURIComponent(finalInstruction);
@@ -877,7 +904,6 @@
                 const loader = document.getElementById(loadingId);
                 if(loader) loader.remove();
                 
-                // Exibe o erro de conexão/API se a codificação não for o problema
                 let errorText = `**Erro:** Falha Na Conexão Com Crisálida. (${err.message.includes('Failed to fetch') ? 'Erro de rede ou a API está offline' : `Erro interno: ${err.message}`})`;
                 
                 addMessage('ai', errorText, 'text'); 
