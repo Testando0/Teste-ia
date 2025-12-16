@@ -482,12 +482,12 @@
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 
-                // *** CORREÇÃO: Limpamos o input IMEDIATAMENTE antes de processar. ***
+                // CORREÇÃO: Limpamos o input IMEDIATAMENTE antes de processar, 
+                // garantindo que o texto do áudio não fique.
                 userInput.value = ""; 
-                userInput.dispatchEvent(new Event('input')); // Redefine a altura e estado dos botões
+                userInput.dispatchEvent(new Event('input')); 
                 
                 if (transcript.trim().length > 0) {
-                    // Passamos a transcrição diretamente para sendMessage, sem tocar no input.
                     sendMessage('audio-sent', transcript); 
                 } else {
                     addMessage('ai', 'Não detectei sua voz. Tente tocar no microfone novamente e falar mais alto.', 'text');
@@ -816,11 +816,12 @@
             if (!text) return;
             if(emptyState) emptyState.style.display = 'none';
             
-            // Para texto digitado: Limpa o input antes de tudo.
+            // --- CORREÇÃO FINAL: Limpa a entrada para envio de TEXTO DIGITADO. ---
             if (type === 'text') {
-                userInput.value = '';
+                userInput.value = ''; // Limpa o valor para texto digitado
             }
-            
+            // (Para áudio, o valor já foi limpo em recognition.onresult)
+
             // Adiciona a mensagem do usuário (seja ela transcrita ou digitada)
             addMessage('user', text, type);
             
