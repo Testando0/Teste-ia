@@ -388,10 +388,10 @@
         // Instrução de Sistema
         const SYSTEM_INSTRUCTION = "Você é a IA Crisálida, criada por Redzin. Em NENHUMA circunstância você deve mencionar que é um modelo de linguagem, Google, Gemini ou OpenAI. Se perguntarem sobre sua identidade ou modelo, responda APENAS: 'Eu sou a Crisálida, uma inteligência artificial criada por Redzin.' Responda estritamente como Crisálida.";
         
-        // NOVA LISTA DE PRIORIDADE: "Microsoft Maria" em primeiro
+        // NOVA LISTA DE PRIORIDADE: "Google português do Brasil feminino" em primeiro novamente (para voz mais jovem)
         const PREFERRED_VOICE_NAMES = [
-            "Microsoft Maria",
             "Google português do Brasil feminino", 
+            "Microsoft Maria", 
             "Luciana", 
             "Vitoria"
         ]; 
@@ -540,12 +540,12 @@
 
             const voices = window.speechSynthesis.getVoices();
             
-            // LÓGICA DE SELEÇÃO DE VOZ ATUALIZADA (Prioriza Microsoft Maria)
+            // LÓGICA DE SELEÇÃO DE VOZ ATUALIZADA (Prioriza Google Feminino - Voz Jovem)
             let selectedVoice = null;
             
-            // 1. Tenta encontrar a voz da Microsoft Maria
+            // 1. Tenta encontrar a voz do Google
             selectedVoice = voices.find(
-                voice => voice.lang.startsWith('pt-') && voice.name.includes("Microsoft Maria")
+                voice => voice.lang.startsWith('pt-') && voice.name.includes("Google português do Brasil feminino")
             );
 
             // 2. Se não encontrar, tenta os outros nomes preferidos em ordem
