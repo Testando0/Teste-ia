@@ -381,9 +381,13 @@
         const micBtn = document.getElementById('mic-btn');
         const voiceStatus = document.getElementById('voice-status');
 
-        // URLs das APIs (ATUALIZADAS PARA O FLUXO DE BUSCA + DOWNLOAD DA VREDEN)
+        // URLs das APIs
         const CHAT_API_URL = "https://delirius-apiofc.vercel.app/ia/chatgpt?q=";
-        const MUSIC_API_URL = "https://api.vreden.my.id/api/v1/download/play/audio?query="; // NOVO URL
+        
+        // CORSPROXY.IO: Codifica a URL base da Vreden e encapsula
+        const VREDEN_API_ENDPOINT = "https://api.vreden.my.id/api/v1/download/play/audio?query=";
+        const ENCODED_VREDEN_URL = encodeURIComponent(VREDEN_API_ENDPOINT);
+        const MUSIC_API_BASE_URL = `https://corsproxy.io/?${ENCODED_VREDEN_URL}`; 
         
         // Instrução de Sistema
         const SYSTEM_INSTRUCTION = "Você é a IA Crisálida, criada por Redzin. Em NENHUMA circunstância você deve mencionar que é um modelo de linguagem, Google, Gemini ou OpenAI. Se perguntarem sobre sua identidade ou modelo, responda APENAS: 'Eu sou a Crisálida, uma inteligência artificial criada por Redzin.' Responda estritamente como Crisálida.";
@@ -796,6 +800,7 @@
         }
 
         function resetInput() {
+            userInput.value = ''; 
             userInput.style.height = '24px';
             sendBtn.classList.remove('active');
             sendBtn.disabled = false;
@@ -829,7 +834,7 @@
             if (!text) return;
             if(emptyState) emptyState.style.display = 'none';
             
-            // CORREÇÃO: Limpeza imediata do input (Funciona para texto e áudio)
+            // Limpeza imediata do input (Funciona para texto e áudio)
             userInput.value = ''; 
             userInput.dispatchEvent(new Event('input')); 
             
@@ -868,19 +873,22 @@
                 return; 
             }
 
-            // --- Checagem de Música (NOVA LÓGICA DE 1 PASSO com VREDEN) ---
+            // --- Checagem de Música (LÓGICA DE 1 PASSO COM CORS VIA CORSPROXY.IO) ---
             if (lowerText.startsWith("play ")) {
                 
                 const loadingId = addLoading();
-                const musicQuery = text.substring(5).trim();
+                const musicQuery = encodeURIComponent(text.substring(5).trim());
 
                 try {
-                    if (musicQuery === '') {
+                    if (!musicQuery) {
                         throw new Error(`Digite O Nome Da Música. Ex: **play Naked**`);
                     }
 
-                    // 1. CHAMA A API DE MÚSICA (vreden.my.id/play/audio)
-                    const musicUrl = MUSIC_API_URL + encodeURIComponent(musicQuery);
+                    // 1. CHAMA A API DE MÚSICA ATRAVÉS DO CORSPROXY.IO
+                    // MUSIC_API_BASE_URL já contém: https://corsproxy.io/?<VREDEN_URL_CODIFICADA>
+                    // A Query é adicionada ao final.
+                    const musicUrl = MUSIC_API_BASE_URL + musicQuery; 
+                    
                     let musicRes = await fetch(musicUrl);
                     
                     if (!musicRes.ok) throw new Error(`Erro HTTP: ${musicRes.status}`);
@@ -906,7 +914,7 @@
                     if(loader) loader.remove();
                     
                     const errorMsg = err.message.includes('Failed to fetch')
-                        ? "Erro De Conexão. Tente Novamente." 
+                        ? "Erro De Conexão. Tente Novamente. (Verifique O Proxy CORS)" 
                         : err.message.replace('Error: ', '');
                         
                     aiAnswer = `**Erro Na Música:** ${errorMsg}`;
