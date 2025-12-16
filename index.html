@@ -26,7 +26,7 @@
             --footer-height-buffer: 200px; 
             --action-gray: #444444;
             --voice-active-color: #ff4d4d; 
-            --audio-play-color: #3B82F6; /* Azul para o botão de play */
+            --audio-play-color: #3B82F6; 
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -43,8 +43,6 @@
             line-height: 1.5;
         }
 
-        /* ... (Estilos de scrollbar, main, footer, input-box, etc., mantidos) ... */
-        
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
@@ -392,7 +390,7 @@
         
         let isRecording = false;
         let isSpeaking = false;
-        let activeUtterance = null; // Rastreia a fala ativa
+        let activeUtterance = null; 
 
         // --- FUNÇÕES DE CHAT DE VOZ ---
         
@@ -427,11 +425,11 @@
                 userInput.value = transcript;
                 userInput.dispatchEvent(new Event('input')); 
                 
-                // Envia a mensagem automaticamente, mas como áudio
+                // Envia a mensagem automaticamente, forçando o tipo 'audio-sent'
                 if (transcript.trim().length > 0) {
-                    sendMessage('audio-sent'); // Envia como áudio para mudar o visual
+                    sendMessage('audio-sent'); 
                 } else {
-                    addAiAudioMessage('Não detectei sua voz. Tente tocar no microfone novamente e falar mais alto.', 'ai');
+                    addMessage('ai', 'Não detectei sua voz. Tente tocar no microfone novamente e falar mais alto.', 'text');
                 }
             };
 
@@ -447,7 +445,7 @@
                 micBtn.classList.remove('active');
                 voiceStatus.classList.remove('active');
                 userInput.placeholder = 'Enviar Mensagem...';
-                addAiAudioMessage(errorMsg, 'ai');
+                addMessage('ai', errorMsg, 'text'); // Resposta de erro em texto
                 sendBtn.disabled = !userInput.value.trim().length;
             };
 
@@ -472,11 +470,10 @@
                 return;
             }
 
-            // Cancela qualquer fala anterior
             window.speechSynthesis.cancel();
             
             const utterance = new SpeechSynthesisUtterance(text);
-            activeUtterance = utterance; // Rastreia a fala ativa
+            activeUtterance = utterance;
 
             const voices = window.speechSynthesis.getVoices();
             const ptVoice = voices.find(voice => voice.lang.startsWith('pt-') && (voice.name.includes('Google') || voice.default));
@@ -491,18 +488,16 @@
             const progressBar = playerElement.querySelector('.progress');
             const durationDisplay = playerElement.querySelector('.duration');
             const playButton = playerElement.querySelector('.play-button');
-            const duration = text.length * 0.15; // Estimativa de duração (0.15s por caractere)
+            const duration = text.length * 0.15; 
             let startTime = 0;
             let currentPosition = 0;
 
-            // Função para formatar segundos em M:SS
             function formatTime(seconds) {
                 const min = Math.floor(seconds / 60);
                 const sec = Math.floor(seconds % 60);
                 return `${min}:${sec < 10 ? '0' : ''}${sec}`;
             }
 
-            // Calcula a duração estimada e exibe
             durationDisplay.textContent = formatTime(duration) || '0:00';
             
             let interval = null;
@@ -524,7 +519,7 @@
                 isSpeaking = true;
                 startTime = Date.now();
                 interval = setInterval(updateProgress, 100);
-                playButton.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M6 19H10V5H6M14 19H18V5H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; // Pause Icon
+                playButton.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M6 19H10V5H6M14 19H18V5H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; 
             };
 
             utterance.onend = () => {
@@ -532,19 +527,18 @@
                 clearInterval(interval);
                 progressBar.style.width = '100%';
                 durationDisplay.textContent = formatTime(duration) || '0:00';
-                playButton.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; // Play Icon
+                playButton.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; 
             };
 
             window.speechSynthesis.speak(utterance);
         }
         
-        // Garante que as vozes sejam carregadas
         window.speechSynthesis.onvoiceschanged = () => {
              console.log('Vozes TTS carregadas.');
         };
 
 
-        // --- ADIÇÃO DE MENSAGENS VISUAIS DE ÁUDIO ---
+        // --- ADIÇÃO DE MENSAGENS VISUAIS DE ÁUDIO E TEXTO ---
         
         // Cria a mensagem da IA como um player de áudio clicável
         function addAiAudioMessage(text) {
@@ -572,23 +566,22 @@
         window.togglePlay = function(playerElement, encodedText) {
             const text = atob(encodedText);
             
-            if (isSpeaking && activeUtterance && activeUtterance.text === text) {
-                // Pausar
-                window.speechSynthesis.pause();
-                isSpeaking = false;
-                playerElement.querySelector('.play-button').innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; // Play Icon
-            } else if (window.speechSynthesis.paused && activeUtterance && activeUtterance.text === text) {
-                // Continuar
-                window.speechSynthesis.resume();
-                isSpeaking = true;
-                playerElement.querySelector('.play-button').innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M6 19H10V5H6M14 19H18V5H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; // Pause Icon
-            } else {
-                // Tocar (ou trocar)
-                speakAndMonitor(text, playerElement);
-            }
+            // Cancela qualquer outra fala ativa
+            window.speechSynthesis.cancel(); 
+            
+            // Resetar visualmente outros players
+            document.querySelectorAll('.audio-message').forEach(p => {
+                if (p !== playerElement) {
+                    p.querySelector('.play-button').innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+                    p.querySelector('.progress').style.width = '0%';
+                }
+            });
+
+            // Tocar
+            speakAndMonitor(text, playerElement);
         };
 
-        // Adiciona a mensagem do usuário (agora suporta áudio visual)
+        // Adiciona a mensagem do usuário (agora suporta áudio visual e texto)
         function addMessage(sender, text, type = 'text') {
             const div = document.createElement('div');
             div.className = `message-row ${sender}`;
@@ -597,7 +590,7 @@
             
             if (sender === 'user' && type === 'audio-sent') {
                 // Visual de Áudio Enviado
-                const duration = text.length * 0.15; // Simulação de duração
+                const duration = text.length * 0.15; 
                 const formattedDuration = `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}`;
                 
                 contentHtml = `
@@ -610,7 +603,7 @@
                     </div>
                 `;
             } else {
-                // Mensagem de Texto Normal (para AI ou user digitado)
+                // Mensagem de Texto Normal
                 if (sender === 'ai') {
                     try {
                         contentHtml = (typeof marked !== 'undefined') ? marked.parse(text) : text;
@@ -627,7 +620,7 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
         
-        // --- FUNÇÕES EXISTENTES E AJUSTADAS ---
+        // --- FUNÇÕES DE CONTROLE ---
 
         userInput.addEventListener('input', function() {
             window.speechSynthesis.cancel(); 
@@ -649,7 +642,7 @@
 
 
         function addMusicMessage(data) {
-            // Lógica de música mantida, mas a resposta da IA sobre a música será falada.
+            // ... (Lógica de música mantida para mostrar o player de música) ...
             const div = document.createElement('div');
             div.className = 'message-row ai';
             
@@ -662,7 +655,7 @@
             const downloadUrl = download.url; 
             
             if (!downloadUrl) {
-                 addAiAudioMessage(`Erro: O Servidor Não Retornou Dados Válidos.`, 'ai');
+                 addMessage('ai', `Erro: O Servidor Não Retornou Dados Válidos.`, 'text');
                  return;
             }
 
@@ -687,7 +680,9 @@
             div.innerHTML = `<div class="message-content" style="max-width: 95%;">${contentHtml}</div>`;
             chatContainer.appendChild(div);
             chatContainer.scrollTop = chatContainer.scrollHeight;
-            addAiAudioMessage(`Música ${title} encontrada e pronta para download!`, 'ai'); // Mensagem de áudio para confirmação
+            
+            // Confirmação da música encontrada em TEXTO (Regra: só áudio se for resposta a um áudio)
+            addMessage('ai', `Música **${title}** encontrada e pronta para download!`, 'text');
         }
 
         function addLoading() {
@@ -733,7 +728,7 @@
             if (!text) return;
             if(emptyState) emptyState.style.display = 'none';
             
-            // Se for áudio, exibe a mensagem do usuário como áudio-sent
+            // 1. Exibe a mensagem do usuário (como texto ou áudio visual)
             if (type === 'audio-sent') {
                 addMessage('user', text, 'audio-sent'); 
             } else {
@@ -744,11 +739,17 @@
 
             const lowerText = text.toLowerCase();
             let aiAnswer = null;
+            let responseType = type; // Tipo de resposta será igual ao tipo de entrada (exceto música)
 
+            // --- Checagens de Identidade ---
             const identityKeywords = ["qual seu nome", "quem é você", "diga seu nome", "vc se chama", "seu nome", "nome dela", "que ia é você", "que ia é", "quem te criou", "quem é seu dono", "quem te desenvolveu", "quem te fez", "quem é o criador", "criador", "sua criadora", "seu criador", "quem te programou", "quem te inventou", "quem é redzin"];
             if (identityKeywords.some(keyword => lowerText.includes(keyword))) {
                 aiAnswer = "Eu sou a Crisálida, uma inteligência artificial criada por Redzin.";
-                addAiAudioMessage(aiAnswer);
+                if (responseType === 'audio-sent') {
+                    addAiAudioMessage(aiAnswer);
+                } else {
+                    addMessage('ai', aiAnswer, 'text');
+                }
                 resetInput();
                 return; 
             }
@@ -756,17 +757,23 @@
             const geminiKeywords = ["gemini", "gêmeos", "quem é gemini", "quem é gêmeos", "fale sobre gemini", "o que é gemini"];
             if (geminiKeywords.some(keyword => lowerText.includes(keyword))) {
                 aiAnswer = "Gemini é uma família de modelos de inteligência artificial desenvolvida pelo Google. Eu sou a Crisálida, criada por Redzin, e estou aqui para te ajudar com suas dúvidas e downloads de MP3.";
-                addAiAudioMessage(aiAnswer);
+                 if (responseType === 'audio-sent') {
+                    addAiAudioMessage(aiAnswer);
+                } else {
+                    addMessage('ai', aiAnswer, 'text');
+                }
                 resetInput();
                 return; 
             }
 
+            // --- Checagem de Música ---
             if (lowerText.startsWith("play ")) {
                 
                 const loadingId = addLoading();
                 const musicQuery = text.substring(5).trim();
 
                 try {
+                    // ... (Lógica de API de Música) ...
                     const originalUrl = `${MUSIC_API_BASE_URL}?query=${encodeURIComponent(musicQuery)}`;
                     const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(originalUrl)}`;
 
@@ -782,7 +789,8 @@
                     }
                     
                     document.getElementById(loadingId).remove();
-                    addMusicMessage(musicRes.result); 
+                    addMusicMessage(musicRes.result); // Sempre adiciona a mensagem do player real
+                    // A resposta de confirmação de música já é sempre em texto dentro de addMusicMessage
 
                 } catch (err) {
                     const loader = document.getElementById(loadingId);
@@ -792,14 +800,15 @@
                         ? "Erro De Conexão. Tente Novamente." 
                         : err.message.replace('Error: ', '');
                         
-                    aiAnswer = `Erro Na Música: ${errorMsg}`;
-                    addAiAudioMessage(aiAnswer);
+                    aiAnswer = `**Erro Na Música:** ${errorMsg}`;
+                    addMessage('ai', aiAnswer, 'text'); // Resposta de erro em texto
                 } finally {
                     resetInput();
                     return; 
                 }
             }
 
+            // --- Chamada da API de Chat (Resposta Geral) ---
             const loadingId = addLoading();
 
             try {
@@ -834,14 +843,18 @@
                 aiAnswer = aiAnswer.replace(/como uma IA/gi, 'como Crisálida');
                 aiAnswer = aiAnswer.replace(/fui treinado/gi, 'fui programado');
 
-                // A resposta da IA é adicionada como um áudio para pausar/despausar
-                addAiAudioMessage(aiAnswer); 
+                // 2. Exibe a resposta baseada no tipo de input do usuário
+                if (responseType === 'audio-sent') {
+                    addAiAudioMessage(aiAnswer); // Responde como áudio (player)
+                } else {
+                    addMessage('ai', aiAnswer, 'text'); // Responde como texto normal (Markdown)
+                }
 
             } catch (err) {
                 const loader = document.getElementById(loadingId);
                 if(loader) loader.remove();
-                aiAnswer = `Falha Na Conexão Com Crisálida. (${err.message.includes('Failed to fetch') ? 'Erro de rede' : 'Erro interno'})`;
-                addAiAudioMessage(aiAnswer);
+                aiAnswer = `**Erro:** Falha Na Conexão Com Crisálida. (${err.message.includes('Failed to fetch') ? 'Erro de rede' : 'Erro interno'})`;
+                addMessage('ai', aiAnswer, 'text'); // Resposta de erro em texto
             } finally {
                 resetInput();
             }
@@ -850,8 +863,8 @@
         document.addEventListener('DOMContentLoaded', () => {
             if (chatContainer.children.length === 1 && chatContainer.children[0].id === 'empty-state') {
                 emptyState.style.display = 'none';
-                const welcomeMsg = "Oi, Eu Sou A Crisálida, Uma IA Criada Pelo Redzin. Por Favor, Comece A Conversa. (Dica: Use play [música] Para Baixar Uma Música!)";
-                addAiAudioMessage(welcomeMsg);
+                const welcomeMsg = "Oi, Eu Sou A Crisálida, Uma IA Criada Pelo Redzin. Por Favor, Comece A Conversa. (Dica: Use **play [música]** Para Baixar Uma Música!)";
+                addMessage('ai', welcomeMsg, 'text'); // Boas-vindas em texto
             }
         });
     </script>
