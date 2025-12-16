@@ -388,6 +388,11 @@
         // Instrução de Sistema
         const SYSTEM_INSTRUCTION = "Você é a IA Crisálida, criada por Redzin. Em NENHUMA circunstância você deve mencionar que é um modelo de linguagem, Google, Gemini ou OpenAI. Se perguntarem sobre sua identidade ou modelo, responda APENAS: 'Eu sou a Crisálida, uma inteligência artificial criada por Redzin.' Responda estritamente como Crisálida.";
         
+        // NOVIDADE: Nome da voz preferida
+        // Tente usar "Microsoft Maria", "Google português do Brasil feminino" ou "Luciana" 
+        // A disponibilidade depende do navegador e do sistema operacional do usuário.
+        const PREFERRED_VOICE_NAME = "Google português do Brasil feminino"; 
+        
         let isRecording = false;
         let isSpeaking = false;
         let activeUtterance = null; 
@@ -411,12 +416,11 @@
             return new TextDecoder().decode(utf8Bytes);
         }
         
-        // --- NOVIDADE: FUNÇÃO PARA LIMPAR TEXTO PARA TTS (ATUALIZADA) ---
+        // --- FUNÇÃO PARA LIMPAR TEXTO PARA TTS (SEM EMOJIS/FORMATAÇÃO) ---
         function cleanTextForTts(text) {
             let cleaned = text;
 
-            // 1. Remover Emojis (Adicionado)
-            // Regex robusta para remover a maioria dos emojis Unicode modernos
+            // 1. Remover Emojis 
             cleaned = cleaned.replace(/(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g, '');
 
             // 2. Remover negrito/itálico Markdown (**) e (*)
@@ -532,13 +536,29 @@
             // FIM DA APLICAÇÃO DA LIMPEZA
 
             const voices = window.speechSynthesis.getVoices();
-            const ptVoice = voices.find(voice => voice.lang.startsWith('pt-') && (voice.name.includes('Google') || voice.default));
             
-            if (ptVoice) {
-                utterance.voice = ptVoice;
-            } else {
-                utterance.lang = 'pt-BR';
+            // LÓGICA DE SELEÇÃO DE VOZ APRIMORADA
+            let selectedVoice = voices.find(
+                voice => voice.lang.startsWith('pt-') && voice.name.includes(PREFERRED_VOICE_NAME)
+            );
+
+            if (!selectedVoice) {
+                // Tenta encontrar uma voz feminina comum (menos específica)
+                selectedVoice = voices.find(
+                    voice => voice.lang.startsWith('pt-') && (voice.name.includes('Google') || voice.name.includes('Microsoft')) && (voice.name.includes('feminino') || voice.name.includes('female') || voice.name.includes('Maria') || voice.name.includes('Luciana'))
+                );
             }
+
+            if (selectedVoice) {
+                utterance.voice = selectedVoice;
+                console.log('Voz selecionada:', selectedVoice.name);
+            } else {
+                // Se nenhuma voz específica for encontrada, usa o padrão pt-BR
+                utterance.lang = 'pt-BR';
+                console.log('Voz padrão pt-BR usada.');
+            }
+            // FIM DA LÓGICA DE SELEÇÃO DE VOZ
+
             utterance.rate = 1.0;
 
             const progressBar = playerElement.querySelector('.progress');
@@ -590,6 +610,8 @@
         
         window.speechSynthesis.onvoiceschanged = () => {
              console.log('Vozes TTS carregadas.');
+             // Você pode testar as vozes disponíveis aqui:
+             // console.log(window.speechSynthesis.getVoices().filter(v => v.lang.startsWith('pt-')));
         };
 
 
