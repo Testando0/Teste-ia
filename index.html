@@ -381,10 +381,9 @@
         const micBtn = document.getElementById('mic-btn');
         const voiceStatus = document.getElementById('voice-status');
 
-        // URLs das APIs (ATUALIZADAS PARA O FLUXO DE BUSCA + DOWNLOAD)
+        // URLs das APIs (ATUALIZADAS PARA O FLUXO DE BUSCA + DOWNLOAD DA VREDEN)
         const CHAT_API_URL = "https://delirius-apiofc.vercel.app/ia/chatgpt?q=";
-        const SEARCH_API_URL = "https://delirius-apiofc.vercel.app/search/ytsearch?q=";
-        const DOWNLOAD_API_URL = "https://delirius-apiofc.vercel.app/download/ytmp3?url=";
+        const MUSIC_API_URL = "https://api.vreden.my.id/api/v1/download/play/audio?query="; // NOVO URL
         
         // Instrução de Sistema
         const SYSTEM_INSTRUCTION = "Você é a IA Crisálida, criada por Redzin. Em NENHUMA circunstância você deve mencionar que é um modelo de linguagem, Google, Gemini ou OpenAI. Se perguntarem sobre sua identidade ou modelo, responda APENAS: 'Eu sou a Crisálida, uma inteligência artificial criada por Redzin.' Responda estritamente como Crisálida.";
@@ -717,30 +716,31 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
         
-        // --- FUNÇÕES DE MÚSICA (ATUALIZADA) ---
+        // --- FUNÇÕES DE MÚSICA (ATUALIZADA PARA VREDEN) ---
 
-        function addMusicMessage(downloadData) { 
+        function addMusicMessage(resultData) { 
             const div = document.createElement('div');
             div.className = 'message-row ai';
             
-            // Extrai dados do Delirius ytmp3 response.data
-            const title = downloadData.title || 'Música Desconhecida';
+            // Extrai dados da estrutura VREDEN (resultData é o objeto 'result')
+            const metadata = resultData.metadata || {};
+            const download = resultData.download || {};
+
+            const title = metadata.title || 'Música Desconhecida';
             
-            const durationSeconds = downloadData.duration; // int em segundos
+            const durationSeconds = metadata.seconds; // int em segundos
             const duration = formatSeconds(durationSeconds);
             
-            const viewsStr = downloadData.views; 
-            const views = viewsStr ? String(viewsStr).replace(/\B(?=(\d{3})+(?!\d))/g, ".") : 'Desconhecidas'; 
+            const views = metadata.views ? String(metadata.views).replace(/\B(?=(\d{3})+(?!\d))/g, ".") : 'Desconhecidas'; 
             
-            const download = downloadData.download || {};
             const downloadUrl = download.url; 
             
             if (!downloadUrl) {
-                 addMessage('ai', `Erro: O Servidor Não Retornou Dados Válidos.`, 'text');
+                 addMessage('ai', `Erro: O Servidor Não Retornou O Link De Download.`, 'text');
                  return;
             }
 
-            const filename = title.replace(/[^\w\s]/gi, '').substring(0, 50).trim() + '.mp3';
+            const filename = download.filename || (title.replace(/[^\w\s]/gi, '').substring(0, 50).trim() + '.mp3');
 
             const contentHtml = `
                 <h3 style="margin-top: 0; font-weight: 600;">🎵 ${title}</h3>
@@ -868,7 +868,7 @@
                 return; 
             }
 
-            // --- Checagem de Música (NOVA LÓGICA DE 2 PASSOS) ---
+            // --- Checagem de Música (NOVA LÓGICA DE 1 PASSO com VREDEN) ---
             if (lowerText.startsWith("play ")) {
                 
                 const loadingId = addLoading();
@@ -879,35 +879,27 @@
                         throw new Error(`Digite O Nome Da Música. Ex: **play Naked**`);
                     }
 
-                    // 1. CHAMA A API DE BUSCA (ytsearch)
-                    const searchUrl = SEARCH_API_URL + encodeURIComponent(musicQuery);
-                    let searchRes = await fetch(searchUrl);
-                    if (!searchRes.ok) throw new Error(`Erro HTTP na Busca: ${searchRes.status}`);
+                    // 1. CHAMA A API DE MÚSICA (vreden.my.id/play/audio)
+                    const musicUrl = MUSIC_API_URL + encodeURIComponent(musicQuery);
+                    let musicRes = await fetch(musicUrl);
                     
-                    searchRes = await searchRes.json();
+                    if (!musicRes.ok) throw new Error(`Erro HTTP: ${musicRes.status}`);
+                    
+                    musicRes = await musicRes.json();
 
-                    if (searchRes.status !== true || !searchRes.data || searchRes.data.length === 0) {
-                        throw new Error('Nenhuma música encontrada para sua busca.');
-                    }
-                    
-                    const firstVideo = searchRes.data[0];
-                    const videoUrl = firstVideo.url; 
-                    
-                    // 2. CHAMA A API DE DOWNLOAD (ytmp3)
-                    const downloadUrlApi = DOWNLOAD_API_URL + encodeURIComponent(videoUrl);
-
-                    let downloadRes = await fetch(downloadUrlApi);
-                    if (!downloadRes.ok) throw new Error(`Erro HTTP no Download: ${downloadRes.status}`);
-                    
-                    downloadRes = await downloadRes.json();
-                    
-                    if (downloadRes.status !== true || !downloadRes.data || !downloadRes.data.download || !downloadRes.data.download.url) {
-                        throw new Error('O servidor falhou ao gerar o link de download MP3.');
+                    if (musicRes.status !== true || !musicRes.result || !musicRes.result.download || !musicRes.result.download.url) {
+                        // Checa se o resultado da busca interna (result.status) também falhou
+                        const innerStatus = musicRes.result ? musicRes.result.status : false;
+                        if(innerStatus === false) {
+                            throw new Error('Não Encontrei a Música ou o Link Está Indisponível.');
+                        }
+                        throw new Error('Resposta Inválida do Servidor de Música.');
                     }
                     
                     document.getElementById(loadingId).remove();
-                    // Passa o objeto 'data' da resposta de download
-                    addMusicMessage(downloadRes.data); 
+                    
+                    // Passa o objeto 'result' que contém metadata e download
+                    addMusicMessage(musicRes.result); 
 
                 } catch (err) {
                     const loader = document.getElementById(loadingId);
