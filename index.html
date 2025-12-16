@@ -381,9 +381,10 @@
         const micBtn = document.getElementById('mic-btn');
         const voiceStatus = document.getElementById('voice-status');
 
-        // URLs das APIs 
+        // URLs das APIs (ATUALIZADAS PARA O FLUXO DE BUSCA + DOWNLOAD)
         const CHAT_API_URL = "https://delirius-apiofc.vercel.app/ia/chatgpt?q=";
-        const MUSIC_API_BASE_URL = "https://api.vreden.my.id/api/v1/download/play/audio";
+        const SEARCH_API_URL = "https://delirius-apiofc.vercel.app/search/ytsearch?q=";
+        const DOWNLOAD_API_URL = "https://delirius-apiofc.vercel.app/download/ytmp3?url=";
         
         // Instrução de Sistema
         const SYSTEM_INSTRUCTION = "Você é a IA Crisálida, criada por Redzin. Em NENHUMA circunstância você deve mencionar que é um modelo de linguagem, Google, Gemini ou OpenAI. Se perguntarem sobre sua identidade ou modelo, responda APENAS: 'Eu sou a Crisálida, uma inteligência artificial criada por Redzin.' Responda estritamente como Crisálida.";
@@ -401,6 +402,14 @@
         let isSpeaking = false;
         let activeUtterance = null; 
 
+        // --- FUNÇÃO PARA FORMATAR SECONDS EM MM:SS ---
+        function formatSeconds(seconds) {
+            if (typeof seconds !== 'number' || isNaN(seconds) || seconds < 0) return 'Duração Desconhecida';
+            const min = Math.floor(seconds / 60);
+            const sec = Math.floor(seconds % 60).toString().padStart(2, '0');
+            return `${min}:${sec}`;
+        }
+        
         // --- FUNÇÕES DE CODIFICAÇÃO UTF-8 SEGURA ---
 
         // Função para codificar texto UTF-8 (com acentos) para Base64 de forma segura
@@ -476,22 +485,18 @@
                 micBtn.classList.remove('active');
                 voiceStatus.classList.remove('active');
                 userInput.placeholder = 'Enviar Mensagem...';
-                // O estado do botão será redefinido pelo resetInput no final de sendMessage
-                // sendBtn.disabled = !userInput.value.trim().length; 
             };
 
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 
-                // Limpamos o input IMEDIATAMENTE aqui para o caso de áudio
-                userInput.value = ""; 
-                userInput.dispatchEvent(new Event('input')); 
+                // Limpeza feita no sendMessage para áudio e texto.
                 
                 if (transcript.trim().length > 0) {
                     sendMessage('audio-sent', transcript); 
                 } else {
                     addMessage('ai', 'Não detectei sua voz. Tente tocar no microfone novamente e falar mais alto.', 'text');
-                    resetInput(); // Reset manual em caso de falha no áudio
+                    resetInput();
                 }
             };
 
@@ -507,7 +512,6 @@
                 micBtn.classList.remove('active');
                 voiceStatus.classList.remove('active');
                 userInput.placeholder = 'Enviar Mensagem...';
-                // O resetInput será chamado abaixo
                 addMessage('ai', errorMsg, 'text'); 
                 resetInput(); 
             };
@@ -713,37 +717,22 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
         
-        // --- FUNÇÕES DE CONTROLE ---
+        // --- FUNÇÕES DE MÚSICA (ATUALIZADA) ---
 
-        userInput.addEventListener('input', function() {
-            window.speechSynthesis.cancel(); 
-            this.style.height = '24px'; 
-            this.style.height = (this.scrollHeight) + 'px';
-            const hasText = this.value.trim().length > 0;
-            sendBtn.classList.toggle('active', hasText);
-            sendBtn.disabled = !hasText;
-        });
-
-        userInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                if(!sendBtn.disabled) sendMessage();
-            }
-        });
-
-        sendBtn.addEventListener('click', sendMessage);
-
-
-        function addMusicMessage(data) {
+        function addMusicMessage(downloadData) { 
             const div = document.createElement('div');
             div.className = 'message-row ai';
             
-            const meta = data.metadata || {};
-            const title = meta.title || 'Música Desconhecida';
-            const duration = meta.timestamp || 'Duração Desconhecida';
-            const views = meta.views ? String(meta.views).replace(/\B(?=(\d{3})+(?!\d))/g, ".") : 'Desconhecidas'; 
+            // Extrai dados do Delirius ytmp3 response.data
+            const title = downloadData.title || 'Música Desconhecida';
             
-            const download = data.download || {};
+            const durationSeconds = downloadData.duration; // int em segundos
+            const duration = formatSeconds(durationSeconds);
+            
+            const viewsStr = downloadData.views; 
+            const views = viewsStr ? String(viewsStr).replace(/\B(?=(\d{3})+(?!\d))/g, ".") : 'Desconhecidas'; 
+            
+            const download = downloadData.download || {};
             const downloadUrl = download.url; 
             
             if (!downloadUrl) {
@@ -776,6 +765,8 @@
             addMessage('ai', `Música **${title}** encontrada e pronta para download!`, 'text');
         }
 
+        // --- FUNÇÕES DE CONTROLE ---
+
         function addLoading() {
             const id = 'loader-' + Date.now();
             const div = document.createElement('div');
@@ -797,7 +788,6 @@
 
         function prepareInputForSending() {
             window.speechSynthesis.cancel();
-            // A limpeza do valor do input ocorre antes, na função sendMessage.
             userInput.style.height = '24px';
             sendBtn.classList.remove('active');
             sendBtn.disabled = true;
@@ -806,7 +796,6 @@
         }
 
         function resetInput() {
-            // O valor já está limpo neste ponto. Apenas ajustamos a UI.
             userInput.style.height = '24px';
             sendBtn.classList.remove('active');
             sendBtn.disabled = false;
@@ -815,18 +804,35 @@
             userInput.focus();
         }
 
+        userInput.addEventListener('input', function() {
+            window.speechSynthesis.cancel(); 
+            this.style.height = '24px'; 
+            this.style.height = (this.scrollHeight) + 'px';
+            const hasText = this.value.trim().length > 0;
+            sendBtn.classList.toggle('active', hasText);
+            sendBtn.disabled = !hasText;
+        });
+
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if(!sendBtn.disabled) sendMessage();
+            }
+        });
+
+        sendBtn.addEventListener('click', sendMessage);
+
+
         async function sendMessage(type = 'text', audioTranscript = null) {
             
             const text = audioTranscript || userInput.value.trim();
             if (!text) return;
             if(emptyState) emptyState.style.display = 'none';
             
-            // *** CORREÇÃO DEFINITIVA: Limpeza imediata do input ***
+            // CORREÇÃO: Limpeza imediata do input (Funciona para texto e áudio)
             userInput.value = ''; 
-            userInput.dispatchEvent(new Event('input')); // Dispara evento para reajustar altura e botões
-            // ********************************************************
+            userInput.dispatchEvent(new Event('input')); 
             
-            // O prepareInputForSending ainda é útil para desabilitar a entrada enquanto espera
             prepareInputForSending(); 
 
             // Adiciona a mensagem do usuário (seja ela transcrita ou digitada)
@@ -862,28 +868,46 @@
                 return; 
             }
 
-            // --- Checagem de Música ---
+            // --- Checagem de Música (NOVA LÓGICA DE 2 PASSOS) ---
             if (lowerText.startsWith("play ")) {
                 
                 const loadingId = addLoading();
                 const musicQuery = text.substring(5).trim();
 
                 try {
-                    const musicUrl = `${MUSIC_API_BASE_URL}?query=${encodeURIComponent(musicQuery)}`;
+                    if (musicQuery === '') {
+                        throw new Error(`Digite O Nome Da Música. Ex: **play Naked**`);
+                    }
 
-                    const musicReq = await fetch(musicUrl);
+                    // 1. CHAMA A API DE BUSCA (ytsearch)
+                    const searchUrl = SEARCH_API_URL + encodeURIComponent(musicQuery);
+                    let searchRes = await fetch(searchUrl);
+                    if (!searchRes.ok) throw new Error(`Erro HTTP na Busca: ${searchRes.status}`);
                     
-                    if (!musicReq.ok) throw new Error(`Erro HTTP: ${musicReq.status}`);
-                    
-                    const musicRes = await musicReq.json();
+                    searchRes = await searchRes.json();
 
-                    if (musicRes.status !== true || !musicRes.result || !musicRes.result.download || !musicRes.result.download.url) {
-                        const errorMsg = (musicQuery === '') ? `Digite O Nome Da Música. Ex: **play Naked**` : `A Música Foi Encontrada, Mas O Servidor Falhou Ao Realizar O Download.`;
-                        throw new Error(errorMsg);
+                    if (searchRes.status !== true || !searchRes.data || searchRes.data.length === 0) {
+                        throw new Error('Nenhuma música encontrada para sua busca.');
+                    }
+                    
+                    const firstVideo = searchRes.data[0];
+                    const videoUrl = firstVideo.url; 
+                    
+                    // 2. CHAMA A API DE DOWNLOAD (ytmp3)
+                    const downloadUrlApi = DOWNLOAD_API_URL + encodeURIComponent(videoUrl);
+
+                    let downloadRes = await fetch(downloadUrlApi);
+                    if (!downloadRes.ok) throw new Error(`Erro HTTP no Download: ${downloadRes.status}`);
+                    
+                    downloadRes = await downloadRes.json();
+                    
+                    if (downloadRes.status !== true || !downloadRes.data || !downloadRes.data.download || !downloadRes.data.download.url) {
+                        throw new Error('O servidor falhou ao gerar o link de download MP3.');
                     }
                     
                     document.getElementById(loadingId).remove();
-                    addMusicMessage(musicRes.result); 
+                    // Passa o objeto 'data' da resposta de download
+                    addMusicMessage(downloadRes.data); 
 
                 } catch (err) {
                     const loader = document.getElementById(loadingId);
