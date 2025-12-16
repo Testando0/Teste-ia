@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
     <style>
-        /* --- Configurações Globais (Mantidas) --- */
+        /* (Estilos CSS omitidos para brevidade, mas devem ser mantidos como no código anterior) */
         :root {
             --bg-color: #000000;
             --chat-width: 48rem; 
@@ -381,7 +381,7 @@
         const micBtn = document.getElementById('mic-btn');
         const voiceStatus = document.getElementById('voice-status');
 
-        // URLs das APIs
+        // URLs das APIs (AGORA SEM PROXY EXTERNO)
         const CHAT_API_URL = "https://delirius-apiofc.vercel.app/ia/chatgpt?q=";
         const MUSIC_API_BASE_URL = "https://api.vreden.my.id/api/v1/download/play/audio";
         
@@ -469,7 +469,6 @@
                 return;
             }
 
-            // Se for para iniciar uma nova fala, cancela a anterior
             if (activeUtterance && activeUtterance.text !== text) {
                 window.speechSynthesis.cancel();
             }
@@ -501,7 +500,6 @@
                 return `${min}:${sec < 10 ? '0' : ''}${sec}`;
             }
 
-            // Exibe duração estimada quando a fala começa
             durationDisplay.textContent = formatTime(duration) || '0:00';
             
             function updateProgress() {
@@ -532,7 +530,6 @@
                 playButton.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; 
             };
             
-            // Inicia a fala
             window.speechSynthesis.speak(utterance);
         }
         
@@ -548,7 +545,6 @@
             const div = document.createElement('div');
             div.className = `message-row ai`;
             
-            // Usa o texto codificado em Base64 para passar com segurança para a função onclick
             const encodedText = btoa(text); 
             
             const contentHtml = `
@@ -572,21 +568,16 @@
         window.togglePlay = function(playerElement, encodedText) {
             const text = atob(encodedText);
             
-            // Verifica se a fala atual é a deste player e se está pausada
             if (window.speechSynthesis.paused && activeUtterance && activeUtterance.text === text) {
-                // Se estiver pausada, resume
                 window.speechSynthesis.resume();
                 isSpeaking = true;
                 playerElement.querySelector('.play-button').innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M6 19H10V5H6M14 19H18V5H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; 
             } else if (isSpeaking && activeUtterance && activeUtterance.text === text && !window.speechSynthesis.paused) {
-                // Se estiver falando, pausa
                 window.speechSynthesis.pause();
                 isSpeaking = false;
                 playerElement.querySelector('.play-button').innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; 
             } else {
-                // Caso contrário (nova fala ou troca de player), cancela e inicia
                 window.speechSynthesis.cancel();
-                 // Resetar visualmente outros players antes de começar
                 document.querySelectorAll('.audio-message').forEach(p => {
                     p.querySelector('.play-button').innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
                     p.querySelector('.progress').style.width = '0%';
@@ -603,7 +594,6 @@
             let contentHtml;
             
             if (sender === 'user' && type === 'audio-sent') {
-                // Visual de Áudio Enviado
                 const duration = text.length * 0.15; 
                 const formattedDuration = `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}`;
                 
@@ -617,7 +607,6 @@
                     </div>
                 `;
             } else {
-                // Mensagem de Texto Normal
                 if (sender === 'ai') {
                     try {
                         contentHtml = (typeof marked !== 'undefined') ? marked.parse(text) : text;
@@ -694,7 +683,6 @@
             chatContainer.appendChild(div);
             chatContainer.scrollTop = chatContainer.scrollHeight;
             
-            // Resposta da música sempre em texto
             addMessage('ai', `Música **${title}** encontrada e pronta para download!`, 'text');
         }
 
@@ -741,7 +729,6 @@
             if (!text) return;
             if(emptyState) emptyState.style.display = 'none';
             
-            // 1. Exibe a mensagem do usuário (como texto ou áudio visual)
             if (type === 'audio-sent') {
                 addMessage('user', text, 'audio-sent'); 
             } else {
@@ -786,10 +773,10 @@
                 const musicQuery = text.substring(5).trim();
 
                 try {
-                    const originalUrl = `${MUSIC_API_BASE_URL}?query=${encodeURIComponent(musicQuery)}`;
-                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(originalUrl)}`;
+                    // *** MUDANÇA AQUI: Usando a URL da API de música diretamente (sem proxy) ***
+                    const musicUrl = `${MUSIC_API_BASE_URL}?query=${encodeURIComponent(musicQuery)}`;
 
-                    const musicReq = await fetch(proxyUrl);
+                    const musicReq = await fetch(musicUrl);
                     
                     if (!musicReq.ok) throw new Error(`Erro HTTP: ${musicReq.status}`);
                     
@@ -825,10 +812,10 @@
             try {
                 const finalInstruction = `${SYSTEM_INSTRUCTION} Use formatação Markdown. Responda: ${text}`;
                 
-                const targetUrl = CHAT_API_URL + encodeURIComponent(finalInstruction);
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                // *** MUDANÇA AQUI: Usando a URL da API de chat diretamente (sem proxy) ***
+                const chatUrl = CHAT_API_URL + encodeURIComponent(finalInstruction);
                 
-                const req = await fetch(proxyUrl);
+                const req = await fetch(chatUrl);
                 
                 if (!req.ok) throw new Error(`Erro HTTP: ${req.status}`);
 
@@ -854,18 +841,19 @@
                 aiAnswer = aiAnswer.replace(/como uma IA/gi, 'como Crisálida');
                 aiAnswer = aiAnswer.replace(/fui treinado/gi, 'fui programado');
 
-                // 2. Exibe a resposta baseada no tipo de input do usuário
                 if (responseType === 'audio-sent') {
-                    addAiAudioMessage(aiAnswer); // Responde como áudio (player)
+                    addAiAudioMessage(aiAnswer); 
                 } else {
-                    addMessage('ai', aiAnswer, 'text'); // Responde como texto normal (Markdown)
+                    addMessage('ai', aiAnswer, 'text'); 
                 }
 
             } catch (err) {
                 const loader = document.getElementById(loadingId);
                 if(loader) loader.remove();
-                aiAnswer = `**Erro:** Falha Na Conexão Com Crisálida. (${err.message.includes('Failed to fetch') ? 'Erro de rede' : 'Erro interno'})`;
-                addMessage('ai', aiAnswer, 'text'); 
+                
+                let errorText = `**Erro:** Falha Na Conexão Com Crisálida. (${err.message.includes('Failed to fetch') ? 'Erro de rede ou a API está offline' : `Erro interno: ${err.message}`})`;
+                
+                addMessage('ai', errorText, 'text'); 
             } finally {
                 resetInput();
             }
@@ -875,7 +863,7 @@
             if (chatContainer.children.length === 1 && chatContainer.children[0].id === 'empty-state') {
                 emptyState.style.display = 'none';
                 const welcomeMsg = "Oi, Eu Sou A Crisálida, Uma IA Criada Pelo Redzin. Por Favor, Comece A Conversa. (Dica: Use **play [música]** Para Baixar Uma Música!)";
-                addMessage('ai', welcomeMsg, 'text'); // Boas-vindas em texto
+                addMessage('ai', welcomeMsg, 'text'); 
             }
         });
     </script>
