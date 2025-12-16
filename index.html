@@ -476,14 +476,14 @@
                 micBtn.classList.remove('active');
                 voiceStatus.classList.remove('active');
                 userInput.placeholder = 'Enviar Mensagem...';
-                sendBtn.disabled = !userInput.value.trim().length;
+                // O estado do botão será redefinido pelo resetInput no final de sendMessage
+                // sendBtn.disabled = !userInput.value.trim().length; 
             };
 
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 
-                // CORREÇÃO: Limpamos o input IMEDIATAMENTE antes de processar, 
-                // garantindo que o texto do áudio não fique.
+                // Limpamos o input IMEDIATAMENTE aqui para o caso de áudio
                 userInput.value = ""; 
                 userInput.dispatchEvent(new Event('input')); 
                 
@@ -491,6 +491,7 @@
                     sendMessage('audio-sent', transcript); 
                 } else {
                     addMessage('ai', 'Não detectei sua voz. Tente tocar no microfone novamente e falar mais alto.', 'text');
+                    resetInput(); // Reset manual em caso de falha no áudio
                 }
             };
 
@@ -506,8 +507,9 @@
                 micBtn.classList.remove('active');
                 voiceStatus.classList.remove('active');
                 userInput.placeholder = 'Enviar Mensagem...';
-                sendBtn.disabled = !userInput.value.trim().length;
+                // O resetInput será chamado abaixo
                 addMessage('ai', errorMsg, 'text'); 
+                resetInput(); 
             };
 
             micBtn.addEventListener('click', () => {
@@ -795,6 +797,7 @@
 
         function prepareInputForSending() {
             window.speechSynthesis.cancel();
+            // A limpeza do valor do input ocorre antes, na função sendMessage.
             userInput.style.height = '24px';
             sendBtn.classList.remove('active');
             sendBtn.disabled = true;
@@ -803,6 +806,7 @@
         }
 
         function resetInput() {
+            // O valor já está limpo neste ponto. Apenas ajustamos a UI.
             userInput.style.height = '24px';
             sendBtn.classList.remove('active');
             sendBtn.disabled = false;
@@ -812,21 +816,23 @@
         }
 
         async function sendMessage(type = 'text', audioTranscript = null) {
+            
             const text = audioTranscript || userInput.value.trim();
             if (!text) return;
             if(emptyState) emptyState.style.display = 'none';
             
-            // --- CORREÇÃO FINAL: Limpa a entrada para envio de TEXTO DIGITADO. ---
-            if (type === 'text') {
-                userInput.value = ''; // Limpa o valor para texto digitado
-            }
-            // (Para áudio, o valor já foi limpo em recognition.onresult)
+            // *** CORREÇÃO DEFINITIVA: Limpeza imediata do input ***
+            userInput.value = ''; 
+            userInput.dispatchEvent(new Event('input')); // Dispara evento para reajustar altura e botões
+            // ********************************************************
+            
+            // O prepareInputForSending ainda é útil para desabilitar a entrada enquanto espera
+            prepareInputForSending(); 
 
             // Adiciona a mensagem do usuário (seja ela transcrita ou digitada)
             addMessage('user', text, type);
             
-            prepareInputForSending(); 
-
+            
             const lowerText = text.toLowerCase();
             let aiAnswer = null;
             let responseType = type; 
