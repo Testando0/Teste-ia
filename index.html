@@ -411,29 +411,33 @@
             return new TextDecoder().decode(utf8Bytes);
         }
         
-        // --- NOVIDADE: FUNÇÃO PARA LIMPAR TEXTO PARA TTS ---
+        // --- NOVIDADE: FUNÇÃO PARA LIMPAR TEXTO PARA TTS (ATUALIZADA) ---
         function cleanTextForTts(text) {
             let cleaned = text;
 
-            // 1. Remover negrito/itálico Markdown (**) e (*)
+            // 1. Remover Emojis (Adicionado)
+            // Regex robusta para remover a maioria dos emojis Unicode modernos
+            cleaned = cleaned.replace(/(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g, '');
+
+            // 2. Remover negrito/itálico Markdown (**) e (*)
             cleaned = cleaned.replace(/\*\*/g, '');
             cleaned = cleaned.replace(/\*/g, '');
 
-            // 2. Remover códigos e headers (`texto` e #)
+            // 3. Remover códigos e headers (`texto` e #)
             cleaned = cleaned.replace(/`/g, '');
             cleaned = cleaned.replace(/#/g, '');
 
-            // 3. Remover link formatting [texto](url) - Manter apenas o texto
+            // 4. Remover link formatting [texto](url) - Manter apenas o texto
             cleaned = cleaned.replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
 
-            // 4. Substituir quebras de linha por um ponto para melhor fluxo de fala
+            // 5. Substituir quebras de linha por um ponto para melhor fluxo de fala
             cleaned = cleaned.replace(/[\n\r]+/g, '. '); 
 
-            // 5. Normalizar espaços múltiplos
+            // 6. Normalizar espaços múltiplos
             cleaned = cleaned.replace(/\s{2,}/g, ' ');
             
-            // 6. Remover pontuações que o TTS pode ler literalmente no final
-            cleaned = cleaned.replace(/\.$/, ''); // Remove ponto final se for o último caractere após a limpeza
+            // 7. Remover pontuações que o TTS pode ler literalmente no final
+            cleaned = cleaned.replace(/\.$/, '');
 
             return cleaned.trim();
         }
@@ -516,7 +520,7 @@
                 return;
             }
             
-            // *** APLICAÇÃO DA LIMPEZA DE TEXTO PARA TTS ***
+            // APLICAÇÃO DA LIMPEZA DE TEXTO PARA TTS (REMOVE EMOJIS E FORMATAÇÃO)
             const textForTts = cleanTextForTts(text);
 
             if (activeUtterance && activeUtterance.text !== textForTts) { 
@@ -525,7 +529,7 @@
             
             const utterance = new SpeechSynthesisUtterance(textForTts);
             activeUtterance = utterance;
-            // *** FIM DA APLICAÇÃO DA LIMPEZA ***
+            // FIM DA APLICAÇÃO DA LIMPEZA
 
             const voices = window.speechSynthesis.getVoices();
             const ptVoice = voices.find(voice => voice.lang.startsWith('pt-') && (voice.name.includes('Google') || voice.default));
@@ -540,7 +544,7 @@
             const progressBar = playerElement.querySelector('.progress');
             const durationDisplay = playerElement.querySelector('.duration');
             const playButton = playerElement.querySelector('.play-button');
-            const duration = textForTts.length * 0.15; // Usar o texto limpo para uma duração mais precisa
+            const duration = textForTts.length * 0.15; 
             let startTime = 0;
             let currentPosition = 0;
             let interval = null;
