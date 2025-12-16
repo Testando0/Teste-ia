@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
     <style>
-        /* (Estilos CSS omitidos para brevidade, mas devem ser mantidos como no código anterior) */
+        /* (Estilos CSS mantidos como no código anterior) */
         :root {
             --bg-color: #000000;
             --chat-width: 48rem; 
@@ -381,7 +381,7 @@
         const micBtn = document.getElementById('mic-btn');
         const voiceStatus = document.getElementById('voice-status');
 
-        // URLs das APIs (AGORA SEM PROXY EXTERNO)
+        // URLs das APIs 
         const CHAT_API_URL = "https://delirius-apiofc.vercel.app/ia/chatgpt?q=";
         const MUSIC_API_BASE_URL = "https://api.vreden.my.id/api/v1/download/play/audio";
         
@@ -392,6 +392,31 @@
         let isSpeaking = false;
         let activeUtterance = null; 
 
+        // --- FUNÇÕES DE CODIFICAÇÃO UTF-8 SEGURA (NOVIDADE) ---
+        // Função para codificar texto UTF-8 (com acentos) para Base64 de forma segura
+        function utf8ToBase64(str) {
+            // Encode the string in UTF-8
+            const utf8Bytes = new TextEncoder().encode(str);
+            // Convert byte array to a string of binary data
+            const binaryString = String.fromCharCode(...utf8Bytes);
+            // Base64 encode the binary string
+            return btoa(binaryString);
+        }
+
+        // Função para decodificar Base64 para texto UTF-8 (com acentos) de forma segura
+        function base64ToUtf8(str) {
+            // Base64 decode the string of binary data
+            const binaryString = atob(str);
+            // Convert binary string to byte array
+            const utf8Bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                utf8Bytes[i] = binaryString.charCodeAt(i);
+            }
+            // Decode the byte array to a UTF-8 string
+            return new TextDecoder().decode(utf8Bytes);
+        }
+
+        
         // --- FUNÇÕES DE CHAT DE VOZ ---
         
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -489,6 +514,7 @@
             const progressBar = playerElement.querySelector('.progress');
             const durationDisplay = playerElement.querySelector('.duration');
             const playButton = playerElement.querySelector('.play-button');
+            // Duração é calculada pelo tamanho da string (aproximadamente 0.15s por caractere)
             const duration = text.length * 0.15; 
             let startTime = 0;
             let currentPosition = 0;
@@ -545,7 +571,8 @@
             const div = document.createElement('div');
             div.className = `message-row ai`;
             
-            const encodedText = btoa(text); 
+            // *** CORREÇÃO AQUI: Usando a função utf8ToBase64 segura ***
+            const encodedText = utf8ToBase64(text); 
             
             const contentHtml = `
                 <div class="audio-message" onclick="togglePlay(this, '${encodedText}')">
@@ -566,7 +593,8 @@
 
         // Simula o clique no botão de play/pause do áudio da IA
         window.togglePlay = function(playerElement, encodedText) {
-            const text = atob(encodedText);
+            // *** CORREÇÃO AQUI: Usando a função base64ToUtf8 segura ***
+            const text = base64ToUtf8(encodedText);
             
             if (window.speechSynthesis.paused && activeUtterance && activeUtterance.text === text) {
                 window.speechSynthesis.resume();
@@ -773,7 +801,6 @@
                 const musicQuery = text.substring(5).trim();
 
                 try {
-                    // *** MUDANÇA AQUI: Usando a URL da API de música diretamente (sem proxy) ***
                     const musicUrl = `${MUSIC_API_BASE_URL}?query=${encodeURIComponent(musicQuery)}`;
 
                     const musicReq = await fetch(musicUrl);
@@ -812,7 +839,6 @@
             try {
                 const finalInstruction = `${SYSTEM_INSTRUCTION} Use formatação Markdown. Responda: ${text}`;
                 
-                // *** MUDANÇA AQUI: Usando a URL da API de chat diretamente (sem proxy) ***
                 const chatUrl = CHAT_API_URL + encodeURIComponent(finalInstruction);
                 
                 const req = await fetch(chatUrl);
@@ -851,6 +877,7 @@
                 const loader = document.getElementById(loadingId);
                 if(loader) loader.remove();
                 
+                // Exibe o erro de conexão/API se a codificação não for o problema
                 let errorText = `**Erro:** Falha Na Conexão Com Crisálida. (${err.message.includes('Failed to fetch') ? 'Erro de rede ou a API está offline' : `Erro interno: ${err.message}`})`;
                 
                 addMessage('ai', errorText, 'text'); 
