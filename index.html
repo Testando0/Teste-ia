@@ -25,7 +25,7 @@
             --msg-ai-bg: #252525; 
             --footer-height-buffer: 200px; 
             --action-gray: #444444;
-            --voice-active-color: #ff4d4d; /* Cor Vermelha mantida para UI */
+            --voice-active-color: #ff4d4d; 
             --audio-play-color: #444444; 
         }
 
@@ -392,10 +392,13 @@
         // Instrução de Sistema
         const SYSTEM_INSTRUCTION = "Você é a IA Crisálida, criada por Redzin. Em NENHUMA circunstância você deve mencionar que é um modelo de linguagem, Google, Gemini ou OpenAI. Se perguntarem sobre sua identidade ou modelo, responda APENAS: 'Eu sou a Crisálida, uma inteligência artificial criada por Redzin.' Responda estritamente como Crisálida.";
         
-        // LISTA DE PRIORIDADE: AGORA PRIORIZANDO A VOZ DO GOOGLE
+        // LISTA DE PRIORIDADE: AGORA PRIORIZANDO EXPLICITAMENTE "VERMELHO"/"RED"
         const PREFERRED_VOICE_NAMES = [
-            "Google Português do Brasil", // Prioridade máxima
-            "Google", // Qualquer outra voz do Google
+            "Vermelho", 
+            "Red", 
+            "Google Red", 
+            "Google Português do Brasil", 
+            "Google",
             "Luciana", 
             "Vitoria", 
             "Microsoft Maria"
@@ -553,16 +556,17 @@
             
             let selectedVoice = null;
             
-            // 1. Tenta encontrar as vozes preferidas, PRIORIZANDO O GOOGLE
+            // 1. Tenta encontrar as vozes preferidas, PRIORIZANDO O "VERMELHO/RED"
             for (const name of PREFERRED_VOICE_NAMES) { 
                 selectedVoice = voices.find(
                     voice => voice.lang.startsWith('pt-') && 
-                             voice.name.includes(name) // Removido o bloqueio (!google)
+                             voice.name.toLowerCase().includes(name.toLowerCase()) 
                 );
                 if (selectedVoice) break;
             }
 
-            // 2. Fallback: Se não achar as da lista, tenta qualquer voz do Google
+            // 2. Fallback: Se não achar as da lista (ou seja, não tem "Red"), tenta a Google genérica
+            // NOTA: Se você não gosta da "Google Português do Brasil" padrão, é porque ela é a única disponível.
             if (!selectedVoice) {
                 selectedVoice = voices.find(
                     voice => voice.lang.startsWith('pt-') && 
@@ -582,7 +586,6 @@
             if (selectedVoice) {
                 utterance.voice = selectedVoice;
                 console.log('Voz selecionada:', selectedVoice.name);
-                // Ajuste leve para tentar imitar o tom padrão do assistente
                 utterance.pitch = 1.0; 
                 utterance.rate = 1.1; 
             } else {
