@@ -25,7 +25,7 @@
             --msg-ai-bg: #252525; 
             --footer-height-buffer: 200px; 
             --action-gray: #444444;
-            --voice-active-color: #ff4d4d; 
+            --voice-active-color: #ff4d4d; /* Cor Vermelha mantida para UI */
             --audio-play-color: #444444; 
         }
 
@@ -392,13 +392,13 @@
         // Instrução de Sistema
         const SYSTEM_INSTRUCTION = "Você é a IA Crisálida, criada por Redzin. Em NENHUMA circunstância você deve mencionar que é um modelo de linguagem, Google, Gemini ou OpenAI. Se perguntarem sobre sua identidade ou modelo, responda APENAS: 'Eu sou a Crisálida, uma inteligência artificial criada por Redzin.' Responda estritamente como Crisálida.";
         
-        // LISTA DE PRIORIDADE: SEM VOZ DO GOOGLE
+        // LISTA DE PRIORIDADE: AGORA PRIORIZANDO A VOZ DO GOOGLE
         const PREFERRED_VOICE_NAMES = [
+            "Google Português do Brasil", // Prioridade máxima
+            "Google", // Qualquer outra voz do Google
             "Luciana", 
             "Vitoria", 
-            "Microsoft Maria",
-            "female", 
-            "Standard" 
+            "Microsoft Maria"
         ]; 
         
         let isRecording = false;
@@ -553,21 +553,27 @@
             
             let selectedVoice = null;
             
-            // 1. Tenta encontrar as vozes preferidas, EXCLUINDO o Google
+            // 1. Tenta encontrar as vozes preferidas, PRIORIZANDO O GOOGLE
             for (const name of PREFERRED_VOICE_NAMES) { 
                 selectedVoice = voices.find(
                     voice => voice.lang.startsWith('pt-') && 
-                             !voice.name.toLowerCase().includes('google') && 
-                             voice.name.includes(name)
+                             voice.name.includes(name) // Removido o bloqueio (!google)
                 );
                 if (selectedVoice) break;
             }
 
-            // 2. Fallback: Tenta encontrar qualquer outra voz feminina/jovem pt-BR,
+            // 2. Fallback: Se não achar as da lista, tenta qualquer voz do Google
             if (!selectedVoice) {
                 selectedVoice = voices.find(
                     voice => voice.lang.startsWith('pt-') && 
-                            !voice.name.toLowerCase().includes('google') && 
+                             voice.name.toLowerCase().includes('google')
+                );
+            }
+
+            // 3. Fallback final: Tenta encontrar qualquer outra voz feminina/jovem pt-BR
+            if (!selectedVoice) {
+                selectedVoice = voices.find(
+                    voice => voice.lang.startsWith('pt-') && 
                             (voice.name.includes('feminino') || voice.name.includes('female'))
                 );
             }
@@ -576,11 +582,13 @@
             if (selectedVoice) {
                 utterance.voice = selectedVoice;
                 console.log('Voz selecionada:', selectedVoice.name);
+                // Ajuste leve para tentar imitar o tom padrão do assistente
+                utterance.pitch = 1.0; 
                 utterance.rate = 1.1; 
             } else {
                 utterance.lang = 'pt-BR'; 
                 utterance.rate = 1.0; 
-                console.warn('Nenhuma voz pt-BR não-Google encontrada. O sistema usará a voz padrão, o que pode resultar em silêncio ou uma voz genérica.');
+                console.warn('Nenhuma voz específica encontrada. Usando padrão.');
             }
             
 
