@@ -1,7 +1,7 @@
-// api/gerar.js
-const puter = require('puter-js-sdk'); 
+const puter = require('puter-js-sdk');
 
 export default async function handler(req, res) {
+    // Só aceita POST para segurança
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Método não permitido' });
     }
@@ -9,17 +9,18 @@ export default async function handler(req, res) {
     const { prompt } = req.body;
 
     if (!prompt) {
-        return res.status(400).json({ error: 'Prompt vazio' });
+        return res.status(400).json({ error: 'O prompt de imagem está vazio.' });
     }
 
     try {
-        // Usa o SDK da Puter conforme: https://developer.puter.com/tutorials/free-unlimited-openai-api/
+        // Usa o SDK oficial da Puter para gerar imagem via DALL-E 3
+        // Documentação: https://developer.puter.com/tutorials/free-unlimited-openai-api/
         const image = await puter.ai.txt2img(prompt);
         
-        // Retorna a URL da imagem (blob ou data-uri) gerada pela Puter
+        // Retorna o link da imagem gerada sem redirecionamento
         return res.status(200).json({ url: image.src });
     } catch (error) {
-        console.error('Erro Puter:', error);
-        return res.status(500).json({ error: 'Erro ao gerar imagem via Puter SDK' });
+        console.error('Erro na Puter:', error);
+        return res.status(500).json({ error: 'Erro ao processar imagem na Puter.js' });
     }
 }
