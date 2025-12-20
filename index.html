@@ -69,7 +69,7 @@
         .message-content {
             padding: 10px 14px; 
             border-radius: 18px; 
-            max-width: 85%;
+            max-width: 85%; /* Aumentado levemente para imagens */
             display: block; 
             word-wrap: break-word; 
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15); 
@@ -659,18 +659,22 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        // --- FUNÇÃO PARA EXIBIR IMAGEM GERADA ---
+        // --- NOVA FUNÇÃO PARA EXIBIR IMAGEM GERADA ---
         function addImageMessage(imageElement, prompt) {
             const div = document.createElement('div');
             div.className = 'message-row ai';
+
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
+
             const title = document.createElement('p');
             title.innerHTML = `🎨 <strong>Gerado com DALL-E 3:</strong> ${prompt}`;
             
+            // Adiciona classe para estilo CSS
             imageElement.classList.add('generated-art');
+
             contentDiv.appendChild(title);
-            contentDiv.appendChild(imageElement); 
+            contentDiv.appendChild(imageElement); // Adiciona o elemento HTML direto do Puter.js
 
             div.appendChild(contentDiv);
             chatContainer.appendChild(div);
@@ -749,34 +753,26 @@
                 return; 
             }
 
-            // --- Lógica de GERAÇÃO DE IMAGEM (COM AUTH FIX) ---
+            // --- Lógica de GERAÇÃO DE IMAGEM (NOVO) ---
             if (lowerText.startsWith("gerar ")) {
                 const prompt = text.substring(6).trim();
                 const loadingId = addLoading();
 
                 try {
-                    if (!prompt) throw new Error("Por favor, descreva a imagem.");
+                    if (!prompt) throw new Error("Por favor, descreva a imagem após o comando 'gerar'.");
 
-                    // CORREÇÃO: Verifica autenticação antes.
-                    // Se não logado, chama signIn() que abre POPUP ao invés de redirecionar
-                    if (!puter.auth.isSignedIn()) {
-                        const loadingMsg = document.getElementById(loadingId);
-                        loadingMsg.innerHTML = '<div class="message-content">🔑 Autenticando com Puter... Verifique a janela Pop-up.</div>';
-                        await puter.auth.signIn();
-                        // Restaura animação de loading após login
-                        loadingMsg.innerHTML = `<div class="message-content" style="display: flex; align-items: center; width: 60px;"><div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
-                    }
-
-                    // Agora chama a geração, com o usuário já autenticado
+                    // Chama Puter.js com DALL-E 3
                     const imageElement = await puter.ai.txt2img(prompt, { model: 'dall-e-3' });
 
                     document.getElementById(loadingId).remove();
+                    
+                    // Envia a imagem para o chat
                     addImageMessage(imageElement, prompt);
 
                 } catch (err) {
                     const loader = document.getElementById(loadingId);
                     if(loader) loader.remove();
-                    addMessage('ai', `**Não foi possível gerar a imagem:** ${err.message}`, 'text');
+                    addMessage('ai', `**Erro na Geração:** ${err.message}`, 'text');
                 } finally {
                     resetInput();
                     return;
