@@ -1,30 +1,25 @@
 // api/gerar.js
-import puter from '@puter/sdk';
+const puter = require('puter-js-sdk'); 
 
 export default async function handler(req, res) {
-    // Configuração de CORS para permitir que seu HTML acesse a API
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Método não permitido' });
+    }
 
     const { prompt } = req.body;
 
-    if (!prompt) return res.status(400).json({ error: 'Prompt necessário' });
+    if (!prompt) {
+        return res.status(400).json({ error: 'Prompt vazio' });
+    }
 
     try {
-        // O Puter SDK no Node.js acessa o modelo dall-e-3 gratuitamente
-        // Conforme a documentação de "Free Unlimited"
-        const response = await puter.ai.txt2img(prompt, { model: 'dall-e-3', task: 'text-to-image' });
+        // Usa o SDK da Puter conforme: https://developer.puter.com/tutorials/free-unlimited-openai-api/
+        const image = await puter.ai.txt2img(prompt);
         
-        // O Puter retorna um objeto que contém a URL ou o Blob
-        // Vamos extrair a URL da imagem gerada
-        const imageUrl = response.src; 
-
-        return res.status(200).json({ url: imageUrl });
+        // Retorna a URL da imagem (blob ou data-uri) gerada pela Puter
+        return res.status(200).json({ url: image.src });
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ error: 'Falha ao gerar imagem no Puter' });
+        console.error('Erro Puter:', error);
+        return res.status(500).json({ error: 'Erro ao gerar imagem via Puter SDK' });
     }
 }
